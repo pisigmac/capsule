@@ -40,3 +40,7 @@ frontend/*.local
 
 # OS
 .DS_Store
+
+# AgentDrive
+.vault/
+.session
