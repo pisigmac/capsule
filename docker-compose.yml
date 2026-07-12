@@ -1,0 +1,96 @@
+version: "3.9"
+
+services:
+  # API Gateway Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: capsule-api
+    ports:
+      - "9000:9000"
+    environment:
+      - CAPSULE_DATABASE_URL=sqlite:////data/capsule.db
+      - CAPSULES_DIR=/data/capsules
+      - API_HOST=0.0.0.0
+      - API_PORT=9000
+    volumes:
+      - capsule-data:/data
+      - ./capsules:/data/capsules:ro
+    command: uvicorn services.api.main:app --host 0.0.0.0 --port 9000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - capsule-net
+    restart: unless-stopped
+
+  # Sync Service (watches file system)
+  sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: capsule-sync
+    environment:
+      - CAPSULE_DATABASE_URL=sqlite:////data/capsule.db
+      - CAPSULES_DIR=/data/capsules
+      - SYNC_INTERVAL=30
+    volumes:
+      - capsule-data:/data
+      - ./capsules:/data/capsules
+    command: python -c "from services.sync.watcher import CapsuleSyncService; from services.shared.config import config; import time; s = CapsuleSyncService([str(config.capsules_dir)]); s.initial_sync(); s.start(); print('Sync running...'); time.sleep(999999)"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - capsule-net
+    restart: unless-stopped
+
+  # CLI Service (for interactive use)
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: capsule-cli
+    environment:
+      - CAPSULE_DATABASE_URL=sqlite:////data/capsule.db
+      - CAPSULES_DIR=/data/capsules
+      - CAPSULE_API_URL=http://api:9000/api/v1
+    volumes:
+      - capsule-data:/data
+      - ./capsules:/data/capsules
+    stdin_open: true
+    tty: true
+    command: /bin/sh
+    depends_on:
+      - api
+    networks:
+      - capsule-net
+
+  # Frontend Web UI
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: capsule-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - capsule-net
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  capsule-data:
+    driver: local
+
+networks:
+  capsule-net:
+    driver: bridge

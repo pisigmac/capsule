@@ -1,0 +1,472 @@
+openapi: 3.0.3
+info:
+  title: Capsule API
+  description: Atomic knowledge management for the AI era
+  version: 1.0.0
+  contact:
+    name: Capsule Team
+    email: team@capsule.dev
+
+servers:
+  - url: http://localhost:9000/api/v1
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: capsule-api
+
+  /capsules:
+    get:
+      summary: List capsules
+      operationId: listCapsules
+      parameters:
+        - name: archived
+          in: query
+          schema:
+            type: boolean
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of capsules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Capsule"
+
+    post:
+      summary: Create capsule
+      operationId: createCapsule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapsuleCreate"
+      responses:
+        "201":
+          description: Capsule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capsule"
+
+  /capsules/{id}:
+    get:
+      summary: Get capsule
+      operationId: getCapsule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Capsule found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capsule"
+        "404":
+          description: Capsule not found
+
+    patch:
+      summary: Update capsule
+      operationId: updateCapsule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapsuleUpdate"
+      responses:
+        "200":
+          description: Capsule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capsule"
+
+    delete:
+      summary: Delete capsule
+      operationId: deleteCapsule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Capsule deleted
+
+  /capsules/{id}/archive:
+    post:
+      summary: Archive capsule
+      operationId: archiveCapsule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Capsule archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capsule"
+
+  /search:
+    post:
+      summary: Search capsules
+      operationId: searchCapsules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchQuery"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Capsule"
+
+  /compose:
+    post:
+      summary: Compose context window
+      operationId: composeContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComposeRequest"
+      responses:
+        "200":
+          description: Composed context
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  context:
+                    type: string
+                  token_estimate:
+                    type: integer
+
+  /relationships:
+    post:
+      summary: Create relationship
+      operationId: createRelationship
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RelationshipCreate"
+      responses:
+        "201":
+          description: Relationship created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relationship"
+
+  /capsules/{id}/relationships:
+    get:
+      summary: Get capsule relationships
+      operationId: getCapsuleRelationships
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Relationships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outgoing:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Relationship"
+                  incoming:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Relationship"
+
+  /tags:
+    get:
+      summary: List tags
+      operationId: listTags
+      responses:
+        "200":
+          description: Tags with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    count:
+                      type: integer
+
+  /sync:
+    post:
+      summary: Sync directory
+      operationId: syncDirectory
+      parameters:
+        - name: path
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced:
+                    type: integer
+                  directories:
+                    type: array
+                    items:
+                      type: string
+
+  /stale:
+    get:
+      summary: Get stale capsules
+      operationId: getStaleCapsules
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 90
+      responses:
+        "200":
+          description: Stale capsules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  capsules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Capsule"
+
+components:
+  schemas:
+    Capsule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        freshness:
+          type: string
+          format: date-time
+        source:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low, hearsay]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        archived:
+          type: boolean
+        file_path:
+          type: string
+
+    CapsuleCreate:
+      type: object
+      required: [topic, content]
+      properties:
+        topic:
+          type: string
+          minLength: 3
+          maxLength: 500
+        content:
+          type: string
+          minLength: 10
+        tags:
+          type: array
+          items:
+            type: string
+        freshness:
+          type: string
+          format: date-time
+        source:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low, hearsay]
+          default: medium
+        file_path:
+          type: string
+
+    CapsuleUpdate:
+      type: object
+      properties:
+        topic:
+          type: string
+          minLength: 3
+          maxLength: 500
+        content:
+          type: string
+          minLength: 10
+        tags:
+          type: array
+          items:
+            type: string
+        freshness:
+          type: string
+          format: date-time
+        source:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low, hearsay]
+
+    SearchQuery:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: string
+          enum: [high, medium, low, hearsay]
+        archived:
+          type: boolean
+        limit:
+          type: integer
+          default: 50
+        offset:
+          type: integer
+          default: 0
+
+    ComposeRequest:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+        query:
+          type: string
+        confidence_min:
+          type: string
+          enum: [high, medium, low, hearsay]
+        max_tokens:
+          type: integer
+          default: 4000
+
+    RelationshipCreate:
+      type: object
+      required: [from_capsule_id, to_capsule_id]
+      properties:
+        from_capsule_id:
+          type: string
+          format: uuid
+        to_capsule_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+          default: relates_to
+
+    Relationship:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        from_capsule_id:
+          type: string
+          format: uuid
+        to_capsule_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
