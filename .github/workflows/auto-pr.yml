@@ -1,0 +1,47 @@
+name: "AgentDrive: Daily Auto-PR (dev -> main)"
+
+on:
+  schedule:
+    # Run every day at Midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Check for differences
+        id: check_diff
+        run: |
+          git fetch origin main
+          if git diff --quiet origin/main..dev; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes between dev and main."
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_diff.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Generate date
+          PR_DATE=$(date +'%Y-%m-%d')
+          
+          # Create PR
+          gh pr create \
+            --base main \
+            --head dev \
+            --title "🤖 Auto-PR: Agent/Memory Updates ($PR_DATE)" \
+            --body "This automated PR promotes the latest AI Agent code execution and/or Vault memory summaries from the \`dev\` sandbox into the \`main\` stable branch. Please review the changes before merging." || echo "PR already exists, changes will automatically appear in the open PR."
