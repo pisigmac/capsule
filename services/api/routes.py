@@ -1,19 +1,21 @@
 """FastAPI routes for the Capsule API."""
+from __future__ import annotations
+
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..shared.models import get_db, Capsule, Tag, CapsuleRelationship, init_db
-from ..parser.parser import CapsuleParser, ParsedCapsule
 from ..search.engine import SearchEngine
-from ..sync.watcher import CapsuleSyncService
+from ..shared.models import Capsule, CapsuleRelationship, Tag, get_db, utcnow
+from ..store.store import CapsuleStore, StoreError
 
 router = APIRouter()
 
 
-# Pydantic schemas
 class CapsuleCreate(BaseModel):
     topic: str = Field(..., min_length=3, max_length=500)
     content: str = Field(..., min_length=10)
@@ -21,7 +23,6 @@ class CapsuleCreate(BaseModel):
     freshness: Optional[str] = None
     source: Optional[str] = None
     confidence: str = Field(default="medium", pattern="^(high|medium|low|hearsay)$")
-    file_path: Optional[str] = None
 
 
 class CapsuleUpdate(BaseModel):
@@ -46,14 +47,18 @@ class CapsuleResponse(BaseModel):
     archived: bool
     file_path: Optional[str]
 
-    class Config:
-        from_attributes = True
+
+class CapsuleListResponse(BaseModel):
+    items: List[CapsuleResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 class RelationshipCreate(BaseModel):
     from_capsule_id: str
     to_capsule_id: str
-    relationship_type: str = "relates_to"
+    relationship_type: str = Field(default="relates_to", max_length=50)
 
 
 class RelationshipResponse(BaseModel):
@@ -65,173 +70,121 @@ class RelationshipResponse(BaseModel):
 
 
 class SearchQuery(BaseModel):
-    query: str
+    query: str = ""
     tags: Optional[List[str]] = None
     confidence: Optional[str] = None
     archived: Optional[bool] = False
-    limit: int = 50
-    offset: int = 0
+    limit: int = Field(default=50, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
 
 
 class ComposeRequest(BaseModel):
     tags: Optional[List[str]] = None
     query: Optional[str] = None
     confidence_min: Optional[str] = None
-    max_tokens: int = 4000
+    max_tokens: int = Field(default=4000, ge=50, le=128000)
 
 
-# CRUD Routes
+def get_store(db: Session = Depends(get_db)) -> CapsuleStore:
+    return CapsuleStore(db)
+
+
+def parse_freshness(value: Optional[str]):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid freshness timestamp") from exc
+
+
+def require_uuid(value: str) -> str:
+    try:
+        return str(UUID(value))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid capsule ID format") from exc
+
+
 @router.post("/capsules", response_model=CapsuleResponse, status_code=201)
-def create_capsule(data: CapsuleCreate, db: Session = Depends(get_db)):
-    """Create a new capsule."""
-    from datetime import datetime, timezone
-
-    freshness = datetime.now(timezone.utc)
-    if data.freshness:
-        try:
-            freshness = datetime.fromisoformat(data.freshness.replace("Z", "+00:00"))
-        except ValueError:
-            pass
-
-    capsule = Capsule(
+def create_capsule(data: CapsuleCreate, store: CapsuleStore = Depends(get_store)):
+    capsule = store.create(
         topic=data.topic,
         content=data.content,
-        freshness=freshness,
+        tags=data.tags,
         source=data.source,
         confidence=data.confidence,
-        file_path=data.file_path,
+        freshness=parse_freshness(data.freshness) or utcnow(),
     )
-    db.add(capsule)
-    db.flush()
-
-    for tag_name in data.tags:
-        tag = db.query(Tag).filter(Tag.name == tag_name.lower().strip()).first()
-        if not tag:
-            tag = Tag(name=tag_name.lower().strip())
-            db.add(tag)
-            db.flush()
-        capsule.tags.append(tag)
-
-    db.commit()
-    db.refresh(capsule)
+    store.db.commit()
+    store.db.refresh(capsule)
     return CapsuleResponse(**capsule.to_dict())
 
 
-@router.get("/capsules", response_model=List[CapsuleResponse])
+@router.get("/capsules", response_model=CapsuleListResponse)
 def list_capsules(
-    archived: Optional[bool] = Query(None),
+    archived: Optional[bool] = Query(False),
     tag: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
-    """List capsules with optional filters."""
     query = db.query(Capsule)
-
     if archived is not None:
         query = query.filter(Capsule.archived == archived)
-
     if tag:
-        query = query.join(Capsule.tags).filter(Tag.name == tag.lower().strip())
-
+        query = query.filter(Capsule.tags.any(Tag.name == tag.lower().strip()))
+    total = query.count()
     capsules = query.order_by(Capsule.updated_at.desc()).offset(offset).limit(limit).all()
-    return [CapsuleResponse(**c.to_dict()) for c in capsules]
+    return CapsuleListResponse(
+        items=[CapsuleResponse(**c.to_dict()) for c in capsules],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/capsules/{capsule_id}", response_model=CapsuleResponse)
-def get_capsule(capsule_id: str, db: Session = Depends(get_db)):
-    """Get a single capsule by ID."""
-    try:
-        uuid_obj = UUID(capsule_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid capsule ID format")
-
-    capsule = db.query(Capsule).filter(Capsule.id == uuid_obj).first()
+def get_capsule(capsule_id: str, store: CapsuleStore = Depends(get_store)):
+    capsule = store.get(require_uuid(capsule_id))
     if not capsule:
         raise HTTPException(status_code=404, detail="Capsule not found")
     return CapsuleResponse(**capsule.to_dict())
 
 
 @router.patch("/capsules/{capsule_id}", response_model=CapsuleResponse)
-def update_capsule(capsule_id: str, data: CapsuleUpdate, db: Session = Depends(get_db)):
-    """Update an existing capsule."""
-    try:
-        uuid_obj = UUID(capsule_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid capsule ID format")
-
-    capsule = db.query(Capsule).filter(Capsule.id == uuid_obj).first()
-    if not capsule:
-        raise HTTPException(status_code=404, detail="Capsule not found")
-
-    if data.topic is not None:
-        capsule.topic = data.topic
-    if data.content is not None:
-        capsule.content = data.content
-    if data.freshness is not None:
-        from datetime import datetime, timezone
-        try:
-            capsule.freshness = datetime.fromisoformat(data.freshness.replace("Z", "+00:00"))
-        except ValueError:
-            pass
-    if data.source is not None:
-        capsule.source = data.source
-    if data.confidence is not None:
-        capsule.confidence = data.confidence
-    if data.tags is not None:
-        capsule.tags.clear()
-        for tag_name in data.tags:
-            tag = db.query(Tag).filter(Tag.name == tag_name.lower().strip()).first()
-            if not tag:
-                tag = Tag(name=tag_name.lower().strip())
-                db.add(tag)
-                db.flush()
-            capsule.tags.append(tag)
-
-    db.commit()
-    db.refresh(capsule)
+def update_capsule(capsule_id: str, data: CapsuleUpdate, store: CapsuleStore = Depends(get_store)):
+    capsule = store.update(
+        require_uuid(capsule_id),
+        topic=data.topic,
+        content=data.content,
+        tags=data.tags,
+        source=data.source,
+        confidence=data.confidence,
+        freshness=parse_freshness(data.freshness),
+    )
+    store.db.commit()
+    store.db.refresh(capsule)
     return CapsuleResponse(**capsule.to_dict())
 
 
 @router.delete("/capsules/{capsule_id}", status_code=204)
-def delete_capsule(capsule_id: str, db: Session = Depends(get_db)):
-    """Delete a capsule."""
-    try:
-        uuid_obj = UUID(capsule_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid capsule ID format")
-
-    capsule = db.query(Capsule).filter(Capsule.id == uuid_obj).first()
-    if not capsule:
-        raise HTTPException(status_code=404, detail="Capsule not found")
-
-    db.delete(capsule)
-    db.commit()
+def delete_capsule(capsule_id: str, store: CapsuleStore = Depends(get_store)):
+    store.delete(require_uuid(capsule_id))
+    store.db.commit()
     return None
 
 
 @router.post("/capsules/{capsule_id}/archive", response_model=CapsuleResponse)
-def archive_capsule(capsule_id: str, db: Session = Depends(get_db)):
-    """Archive a capsule."""
-    try:
-        uuid_obj = UUID(capsule_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid capsule ID format")
-
-    capsule = db.query(Capsule).filter(Capsule.id == uuid_obj).first()
-    if not capsule:
-        raise HTTPException(status_code=404, detail="Capsule not found")
-
-    capsule.archived = True
-    db.commit()
-    db.refresh(capsule)
+def archive_capsule(capsule_id: str, store: CapsuleStore = Depends(get_store)):
+    capsule = store.archive(require_uuid(capsule_id))
+    store.db.commit()
+    store.db.refresh(capsule)
     return CapsuleResponse(**capsule.to_dict())
 
 
-# Search Routes
 @router.post("/search", response_model=List[CapsuleResponse])
 def search_capsules(data: SearchQuery, db: Session = Depends(get_db)):
-    """Search capsules by text query."""
     engine = SearchEngine(db)
     results = engine.search(
         query=data.query,
@@ -246,20 +199,17 @@ def search_capsules(data: SearchQuery, db: Session = Depends(get_db)):
 
 @router.post("/compose")
 def compose_context(data: ComposeRequest, db: Session = Depends(get_db)):
-    """Compose a context window from matching capsules."""
     engine = SearchEngine(db)
-    context = engine.compose(
+    return engine.compose(
         tags=data.tags,
         query=data.query,
         confidence_min=data.confidence_min,
         max_tokens=data.max_tokens,
     )
-    return {"context": context, "token_estimate": len(context.split())}
 
 
 @router.get("/stale")
-def get_stale_capsules(days: int = Query(90, ge=1), db: Session = Depends(get_db)):
-    """Get capsules that haven't been updated in N days."""
+def get_stale_capsules(days: int = Query(90, ge=1, le=3650), db: Session = Depends(get_db)):
     engine = SearchEngine(db)
     capsules = engine.stale_capsules(days=days)
     return {
@@ -268,70 +218,55 @@ def get_stale_capsules(days: int = Query(90, ge=1), db: Session = Depends(get_db
     }
 
 
-# Relationship Routes
 @router.post("/relationships", response_model=RelationshipResponse, status_code=201)
-def create_relationship(data: RelationshipCreate, db: Session = Depends(get_db)):
-    """Create a relationship between two capsules."""
-    try:
-        from_uuid = UUID(data.from_capsule_id)
-        to_uuid = UUID(data.to_capsule_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid capsule ID format")
-
-    from_capsule = db.query(Capsule).filter(Capsule.id == from_uuid).first()
-    to_capsule = db.query(Capsule).filter(Capsule.id == to_uuid).first()
-
-    if not from_capsule or not to_capsule:
-        raise HTTPException(status_code=404, detail="One or both capsules not found")
-
-    rel = CapsuleRelationship(
-        from_capsule_id=from_uuid,
-        to_capsule_id=to_uuid,
-        relationship_type=data.relationship_type,
+def create_relationship(data: RelationshipCreate, store: CapsuleStore = Depends(get_store)):
+    rel = store.link(
+        require_uuid(data.from_capsule_id),
+        require_uuid(data.to_capsule_id),
+        data.relationship_type,
     )
-    db.add(rel)
-    db.commit()
-    db.refresh(rel)
+    store.db.commit()
+    store.db.refresh(rel)
     return RelationshipResponse(**rel.to_dict())
 
 
 @router.get("/capsules/{capsule_id}/relationships")
 def get_capsule_relationships(capsule_id: str, db: Session = Depends(get_db)):
-    """Get all relationships for a capsule."""
-    try:
-        uuid_obj = UUID(capsule_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid capsule ID format")
-
-    capsule = db.query(Capsule).filter(Capsule.id == uuid_obj).first()
+    uid = require_uuid(capsule_id)
+    capsule = db.query(Capsule).filter(Capsule.id == uid).first()
     if not capsule:
         raise HTTPException(status_code=404, detail="Capsule not found")
-
-    outgoing = [r.to_dict() for r in capsule.outgoing_relationships]
-    incoming = [r.to_dict() for r in capsule.incoming_relationships]
-
     return {
-        "outgoing": [RelationshipResponse(**r) for r in outgoing],
-        "incoming": [RelationshipResponse(**r) for r in incoming],
+        "outgoing": [RelationshipResponse(**r.to_dict()) for r in capsule.outgoing_relationships],
+        "incoming": [RelationshipResponse(**r.to_dict()) for r in capsule.incoming_relationships],
     }
 
 
-# Sync Routes
 @router.post("/sync")
-def sync_directory(path: Optional[str] = None, db: Session = Depends(get_db)):
-    """Manually trigger a sync of a directory."""
-    from ..shared.config import config
-    from pathlib import Path
-
-    watch_dirs = [path] if path else [str(config.capsules_dir)]
-    service = CapsuleSyncService(watch_dirs=watch_dirs)
-    count = service.initial_sync()
-    return {"synced": count, "directories": watch_dirs}
+def sync_directory(store: CapsuleStore = Depends(get_store)):
+    count = store.reconcile()
+    store.db.commit()
+    return {"synced": count, "directory": str(store.capsules_dir)}
 
 
-# Tags
-@router.get("/tags", response_model=List[dict])
+@router.get("/tags")
 def list_tags(db: Session = Depends(get_db)):
-    """List all tags with capsule counts."""
-    tags = db.query(Tag).all()
+    tags = db.query(Tag).order_by(Tag.name.asc()).all()
     return [{"name": t.name, "count": len(t.capsules)} for t in tags]
+
+
+@router.get("/status")
+def status(db: Session = Depends(get_db)):
+    from ..shared.config import config
+    from ..shared.models import CapsuleRelationship
+
+    engine = SearchEngine(db)
+    counts = engine.counts()
+    rel_count = db.query(CapsuleRelationship).count()
+    return {
+        **counts,
+        "relationships": rel_count,
+        "database": config.database_url,
+        "dialect": db.get_bind().dialect.name,
+        "capsules_dir": str(config.capsules_dir.resolve()),
+    }

@@ -1,0 +1,10 @@
+# AgentDrive ignore file
+# Directories listed here will be skipped by the vault daemon to save memory and CPU.
+
+node_modules/
+venv/
+.venv/
+dist/
+build/
+__pycache__/
+.vault/

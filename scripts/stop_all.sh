@@ -1,19 +1,23 @@
 #!/bin/bash
-# stop_all.sh - Utility to stop all Capsule services
-
-# Ensure we are in the directory containing docker-compose.yml if possible
+set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"
 
-echo "Stopping Capsule services..."
-docker-compose down
+compose() {
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+  else
+    docker-compose "$@"
+  fi
+}
 
-echo "Validating services are stopped..."
-running_containers=$(docker-compose ps -q)
-if [ -n "$running_containers" ]; then
-    echo "Error: Some containers are still running:"
-    docker-compose ps
-    exit 1
+echo "Stopping Capsule..."
+compose down
+
+if [ -n "$(compose ps -q 2>/dev/null || true)" ]; then
+  echo "Error: containers are still running."
+  compose ps
+  exit 1
 fi
 
-echo "Services stopped and validated successfully."
+echo "Services stopped."

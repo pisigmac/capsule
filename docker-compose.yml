@@ -1,96 +1,82 @@
 version: "3.9"
 
 services:
-  # API Gateway Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: capsule-postgres
+    environment:
+      POSTGRES_USER: capsule
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-capsule}
+      POSTGRES_DB: capsule
+    volumes:
+      - capsule-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capsule -d capsule"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: capsule-api
     ports:
-      - "9000:9000"
+      - "9100:9000"
     environment:
-      - CAPSULE_DATABASE_URL=sqlite:////data/capsule.db
-      - CAPSULES_DIR=/data/capsules
-      - API_HOST=0.0.0.0
-      - API_PORT=9000
+      CAPSULE_DATABASE_URL: postgresql+psycopg://capsule:${POSTGRES_PASSWORD:-capsule}@postgres:5432/capsule
+      CAPSULES_DIR: /data/capsules
+      API_HOST: 0.0.0.0
+      API_PORT: 9000
+      CAPSULE_WATCH: "false"
+      CAPSULE_RECONCILE: "true"
+      CAPSULE_CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173
+      LOG_LEVEL: INFO
     volumes:
-      - capsule-data:/data
-      - ./capsules:/data/capsules:ro
-    command: uvicorn services.api.main:app --host 0.0.0.0 --port 9000 --reload
+      - ./capsules:/data/capsules
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - capsule-net
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
     restart: unless-stopped
 
-  # Sync Service (watches file system)
   sync:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: capsule-sync
     environment:
-      - CAPSULE_DATABASE_URL=sqlite:////data/capsule.db
-      - CAPSULES_DIR=/data/capsules
-      - SYNC_INTERVAL=30
+      CAPSULE_DATABASE_URL: postgresql+psycopg://capsule:${POSTGRES_PASSWORD:-capsule}@postgres:5432/capsule
+      CAPSULES_DIR: /data/capsules
+      LOG_LEVEL: INFO
     volumes:
-      - capsule-data:/data
       - ./capsules:/data/capsules
-    command: python -c "from services.sync.watcher import CapsuleSyncService; from services.shared.config import config; import time; s = CapsuleSyncService([str(config.capsules_dir)]); s.initial_sync(); s.start(); print('Sync running...'); time.sleep(999999)"
+    command: python -m services.sync
     depends_on:
+      postgres:
+        condition: service_healthy
       api:
         condition: service_healthy
-    networks:
-      - capsule-net
     restart: unless-stopped
 
-  # CLI Service (for interactive use)
-  cli:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: capsule-cli
-    environment:
-      - CAPSULE_DATABASE_URL=sqlite:////data/capsule.db
-      - CAPSULES_DIR=/data/capsules
-      - CAPSULE_API_URL=http://api:9000/api/v1
-    volumes:
-      - capsule-data:/data
-      - ./capsules:/data/capsules
-    stdin_open: true
-    tty: true
-    command: /bin/sh
-    depends_on:
-      - api
-    networks:
-      - capsule-net
-
-  # Frontend Web UI
-  frontend:
+  web:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: capsule-frontend
+    container_name: capsule-web
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    networks:
-      - capsule-net
-    restart: unless-stopped
+      - "8080:80"
     depends_on:
       api:
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
-  capsule-data:
-    driver: local
-
-networks:
-  capsule-net:
-    driver: bridge
+  capsule-pg:

@@ -1,250 +1,512 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, Sparkles, Clock, Target, X, Edit2, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState, type FormEvent, type MouseEvent } from 'react'
+import {
+  Archive,
+  Clock,
+  Copy,
+  Layers,
+  Plus,
+  Search,
+  Sparkles,
+  Target,
+  Trash2,
+  X,
+} from 'lucide-react'
+import { api, type Capsule, type ComposeResult, type TagCount } from './api'
 
-const API_URL = 'http://localhost:9000/api/v1';
+type View = 'library' | 'compose' | 'stale'
+type Draft = {
+  id?: string
+  topic: string
+  content: string
+  tags: string
+  confidence: string
+}
+
+const EMPTY_DRAFT: Draft = { topic: '', content: '', tags: '', confidence: 'medium' }
 
 function App() {
-  const [capsules, setCapsules] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentCapsule, setCurrentCapsule] = useState({ topic: '', content: '', tags: '', confidence: 'medium' });
+  const [view, setView] = useState<View>('library')
+  const [capsules, setCapsules] = useState<Capsule[]>([])
+  const [tags, setTags] = useState<TagCount[]>([])
+  const [activeTag, setActiveTag] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
+  const [composeQuery, setComposeQuery] = useState('')
+  const [composeTags, setComposeTags] = useState('')
+  const [composeMin, setComposeMin] = useState('medium')
+  const [composeTokens, setComposeTokens] = useState(2000)
+  const [composed, setComposed] = useState<ComposeResult | null>(null)
+  const [stale, setStale] = useState<Capsule[]>([])
 
-  const fetchCapsules = async () => {
+  const fail = (err: unknown) => {
+    setError(err instanceof Error ? err.message : 'Something went wrong')
+  }
+
+  const refreshTags = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await fetch(`${API_URL}/capsules`);
-      if (res.ok) {
-        const data = await res.json();
-        setCapsules(data);
-      }
+      setTags(await api.tags())
     } catch (err) {
-      console.error('Failed to fetch capsules', err);
-    } finally {
-      setLoading(false);
+      fail(err)
     }
-  };
+  }, [])
+
+  const loadLibrary = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      if (searchQuery.trim()) {
+        const results = await api.search(
+          searchQuery.trim(),
+          activeTag ? [activeTag] : undefined,
+        )
+        setCapsules(results)
+      } else {
+        const data = await api.list(activeTag || undefined)
+        setCapsules(data.items)
+      }
+      await refreshTags()
+    } catch (err) {
+      fail(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [searchQuery, activeTag, refreshTags])
 
   useEffect(() => {
-    fetchCapsules();
-  }, []);
+    void loadLibrary()
+  }, [loadLibrary])
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) {
-      fetchCapsules();
-      return;
-    }
-    
+  const loadStale = async () => {
+    setLoading(true)
+    setError('')
     try {
-      setLoading(true);
-      const res = await fetch(`${API_URL}/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCapsules(data);
-      }
+      const data = await api.stale(90)
+      setStale(data.capsules)
     } catch (err) {
-      console.error('Search failed', err);
+      fail(err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    const tagsArray = currentCapsule.tags.split(',').map(t => t.trim()).filter(Boolean);
-    const payload = { ...currentCapsule, tags: tagsArray };
-    
+  const runCompose = async (event: FormEvent) => {
+    event.preventDefault()
+    setLoading(true)
+    setError('')
     try {
-      const url = currentCapsule.id ? `${API_URL}/capsules/${currentCapsule.id}` : `${API_URL}/capsules`;
-      const method = currentCapsule.id ? 'PATCH' : 'POST';
-      
-      await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      setIsModalOpen(false);
-      fetchCapsules();
-      setCurrentCapsule({ topic: '', content: '', tags: '', confidence: 'medium' });
+      const tagList = composeTags.split(',').map((item) => item.trim()).filter(Boolean)
+      setComposed(
+        await api.compose({
+          query: composeQuery || undefined,
+          tags: tagList.length ? tagList : undefined,
+          confidence_min: composeMin,
+          max_tokens: composeTokens,
+        }),
+      )
     } catch (err) {
-      console.error('Save failed', err);
+      fail(err)
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this capsule?')) return;
-    
+  const saveDraft = async (event: FormEvent) => {
+    event.preventDefault()
+    const tagsArray = draft.tags.split(',').map((item) => item.trim()).filter(Boolean)
     try {
-      await fetch(`${API_URL}/capsules/${id}`, { method: 'DELETE' });
-      fetchCapsules();
+      if (draft.id) {
+        await api.update(draft.id, {
+          topic: draft.topic,
+          content: draft.content,
+          tags: tagsArray,
+          confidence: draft.confidence,
+        })
+      } else {
+        await api.create({
+          topic: draft.topic,
+          content: draft.content,
+          tags: tagsArray,
+          confidence: draft.confidence,
+        })
+      }
+      setModalOpen(false)
+      setDraft(EMPTY_DRAFT)
+      await loadLibrary()
     } catch (err) {
-      console.error('Delete failed', err);
+      fail(err)
     }
-  };
+  }
 
-  const openEditModal = (capsule) => {
-    setCurrentCapsule({
-      ...capsule,
-      tags: capsule.tags ? capsule.tags.join(', ') : ''
-    });
-    setIsModalOpen(true);
-  };
+  const removeCapsule = async (id: string, event: MouseEvent) => {
+    event.stopPropagation()
+    if (!confirm('Delete this capsule file and its index row?')) return
+    try {
+      await api.remove(id)
+      await loadLibrary()
+    } catch (err) {
+      fail(err)
+    }
+  }
+
+  const archiveCapsule = async (id: string, event: MouseEvent) => {
+    event.stopPropagation()
+    try {
+      await api.archive(id)
+      await loadLibrary()
+    } catch (err) {
+      fail(err)
+    }
+  }
+
+  const openEdit = (capsule: Capsule) => {
+    setDraft({
+      id: capsule.id,
+      topic: capsule.topic,
+      content: capsule.content,
+      tags: capsule.tags.join(', '),
+      confidence: capsule.confidence,
+    })
+    setModalOpen(true)
+  }
+
+  const copyContext = async () => {
+    if (!composed?.context) return
+    await navigator.clipboard.writeText(composed.context)
+  }
 
   return (
     <div className="app-container">
       <header className="header">
         <div className="header-title">
-          <Sparkles size={32} className="text-gradient" />
-          <h1 className="text-gradient" style={{ margin: 0, fontSize: '2.5rem' }}>Capsule</h1>
+          <Sparkles size={28} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.8rem' }}>Capsule</h1>
+            <p className="header-sub">Atomic knowledge. Files are the source of truth.</p>
+          </div>
         </div>
-        
-        <form onSubmit={handleSearch} className="search-bar">
-          <Search size={20} color="var(--text-secondary)" />
-          <input 
-            type="text" 
-            placeholder="Search your knowledge base..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </form>
 
-        <button 
-          className="btn btn-primary" 
+        <nav className="view-tabs" aria-label="Primary">
+          <button className={view === 'library' ? 'tab active' : 'tab'} onClick={() => setView('library')}>
+            Library
+          </button>
+          <button
+            className={view === 'compose' ? 'tab active' : 'tab'}
+            onClick={() => setView('compose')}
+          >
+            Compose
+          </button>
+          <button
+            className={view === 'stale' ? 'tab active' : 'tab'}
+            onClick={() => {
+              setView('stale')
+              void loadStale()
+            }}
+          >
+            Stale
+          </button>
+        </nav>
+
+        <button
+          className="btn btn-primary"
           onClick={() => {
-            setCurrentCapsule({ topic: '', content: '', tags: '', confidence: 'medium' });
-            setIsModalOpen(true);
+            setDraft(EMPTY_DRAFT)
+            setModalOpen(true)
           }}
         >
-          <Plus size={20} />
+          <Plus size={18} />
           New Capsule
         </button>
       </header>
 
-      {loading ? (
-        <div className="loading-state">
-          <div className="spinner"><Sparkles size={40} /></div>
-          <p>Decrypting knowledge...</p>
+      {error ? (
+        <div className="error-banner" role="alert">
+          <span>{error}</span>
+          <button className="btn-ghost" onClick={() => setError('')}>
+            <X size={16} />
+          </button>
         </div>
-      ) : capsules.length === 0 ? (
-        <div className="empty-state glass">
-          <Sparkles size={64} color="var(--text-secondary)" opacity={0.5} />
-          <h2>No capsules found</h2>
-          <p>Create your first atomic unit of knowledge.</p>
-        </div>
-      ) : (
-        <div className="capsule-grid">
-          {capsules.map(capsule => (
-            <div key={capsule.id} className="capsule-card glass" onClick={() => openEditModal(capsule)}>
-              <div className="capsule-header">
-                <h3 className="capsule-title">{capsule.topic}</h3>
-                <button 
-                  className="btn-ghost" 
-                  style={{ padding: '4px', borderRadius: '8px' }}
-                  onClick={(e) => handleDelete(capsule.id, e)}
+      ) : null}
+
+      {view === 'library' ? (
+        <>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              void loadLibrary()
+            }}
+            className="search-bar"
+          >
+            <Search size={18} color="var(--text-secondary)" />
+            <input
+              type="search"
+              placeholder="Search capsules"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </form>
+
+          {tags.length > 0 ? (
+            <div className="tag-list filter-row">
+              <button
+                className={activeTag === '' ? 'tag active' : 'tag'}
+                onClick={() => setActiveTag('')}
+              >
+                all
+              </button>
+              {tags.map((tag) => (
+                <button
+                  key={tag.name}
+                  className={activeTag === tag.name ? 'tag active' : 'tag'}
+                  onClick={() => setActiveTag(tag.name === activeTag ? '' : tag.name)}
                 >
-                  <Trash2 size={16} />
+                  #{tag.name} {tag.count}
                 </button>
+              ))}
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="loading-state">
+              <div className="spinner">
+                <Sparkles size={32} />
               </div>
-              
-              <div className="capsule-content">{capsule.content}</div>
-              
-              {capsule.tags && capsule.tags.length > 0 && (
-                <div className="tag-list">
-                  {capsule.tags.map(tag => (
-                    <span key={tag} className="tag">#{tag}</span>
-                  ))}
+              <p>Loading capsules…</p>
+            </div>
+          ) : capsules.length === 0 ? (
+            <div className="empty-state glass">
+              <Layers size={48} color="var(--text-secondary)" />
+              <h2>No capsules found</h2>
+              <p>Create a fact, or drop a .capsule.md file into the capsules directory.</p>
+            </div>
+          ) : (
+            <div className="capsule-grid">
+              {capsules.map((capsule) => (
+                <div key={capsule.id} className="capsule-card glass" onClick={() => openEdit(capsule)}>
+                  <div className="capsule-header">
+                    <h3 className="capsule-title">{capsule.topic}</h3>
+                    <div className="card-actions">
+                      <button className="btn-ghost icon" onClick={(event) => void archiveCapsule(capsule.id, event)} title="Archive">
+                        <Archive size={16} />
+                      </button>
+                      <button className="btn-ghost icon" onClick={(event) => void removeCapsule(capsule.id, event)} title="Delete">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="capsule-content">{capsule.content}</div>
+                  {capsule.tags.length > 0 ? (
+                    <div className="tag-list">
+                      {capsule.tags.map((tag) => (
+                        <span key={tag} className="tag">#{tag}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="capsule-footer">
+                    <div className="confidence-badge">
+                      <Target size={14} className={`confidence-${capsule.confidence}`} />
+                      <span style={{ textTransform: 'capitalize' }}>{capsule.confidence}</span>
+                    </div>
+                    <div className="confidence-badge">
+                      <Clock size={14} />
+                      <span>
+                        {capsule.updated_at
+                          ? new Date(capsule.updated_at).toLocaleDateString()
+                          : '—'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              )}
-              
-              <div className="capsule-footer">
-                <div className="confidence-badge">
-                  <Target size={14} className={`confidence-${capsule.confidence}`} />
-                  <span style={{ textTransform: 'capitalize' }}>{capsule.confidence}</span>
-                </div>
-                <div className="confidence-badge">
-                  <Clock size={14} />
-                  <span>{new Date(capsule.updated_at).toLocaleDateString()}</span>
-                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {view === 'compose' ? (
+        <section className="compose-layout">
+          <form className="glass compose-form" onSubmit={(event) => void runCompose(event)}>
+            <h2>Compose context</h2>
+            <p className="header-sub">Build a token-budgeted window for an agent session.</p>
+            <div className="input-group">
+              <label htmlFor="compose-query">Query</label>
+              <input
+                id="compose-query"
+                className="input"
+                value={composeQuery}
+                onChange={(event) => setComposeQuery(event.target.value)}
+                placeholder="auth middleware"
+              />
+            </div>
+            <div className="input-group">
+              <label htmlFor="compose-tags">Tags (comma separated)</label>
+              <input
+                id="compose-tags"
+                className="input"
+                value={composeTags}
+                onChange={(event) => setComposeTags(event.target.value)}
+                placeholder="auth, staging"
+              />
+            </div>
+            <div className="compose-row">
+              <div className="input-group">
+                <label htmlFor="compose-min">Minimum confidence</label>
+                <select
+                  id="compose-min"
+                  className="input"
+                  value={composeMin}
+                  onChange={(event) => setComposeMin(event.target.value)}
+                >
+                  <option value="hearsay">Hearsay</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label htmlFor="compose-tokens">Max tokens</label>
+                <input
+                  id="compose-tokens"
+                  className="input"
+                  type="number"
+                  min={50}
+                  max={32000}
+                  value={composeTokens}
+                  onChange={(event) => setComposeTokens(Number(event.target.value))}
+                />
               </div>
             </div>
-          ))}
-        </div>
-      )}
-
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content glass" onClick={e => e.stopPropagation()}>
+            <button className="btn btn-primary" type="submit" disabled={loading}>
+              Compose
+            </button>
+          </form>
+          <div className="glass compose-output">
             <div className="modal-header">
-              <h2>{currentCapsule.id ? 'Edit Capsule' : 'New Capsule'}</h2>
-              <button className="btn-ghost" style={{ padding: '8px', borderRadius: '50%' }} onClick={() => setIsModalOpen(false)}>
+              <h2>Output</h2>
+              <button className="btn btn-ghost" type="button" onClick={() => void copyContext()} disabled={!composed?.context}>
+                <Copy size={16} />
+                Copy
+              </button>
+            </div>
+            {composed ? (
+              <>
+                <p className="header-sub">
+                  {composed.capsule_count} capsules · ~{composed.token_estimate} tokens
+                  {composed.truncated ? ' · truncated' : ''}
+                </p>
+                <pre className="compose-pre">{composed.context || '(empty)'}</pre>
+              </>
+            ) : (
+              <p className="header-sub">Run compose to fill an agent context window.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {view === 'stale' ? (
+        <section>
+          <h2>Stale capsules</h2>
+          <p className="header-sub">Not updated in 90 days. Archive or refresh them.</p>
+          {stale.length === 0 ? (
+            <div className="empty-state glass">
+              <Clock size={48} color="var(--text-secondary)" />
+              <h2>Nothing stale</h2>
+              <p>Every indexed capsule has been touched recently.</p>
+            </div>
+          ) : (
+            <div className="capsule-grid">
+              {stale.map((capsule) => (
+                <div key={capsule.id} className="capsule-card glass" onClick={() => openEdit(capsule)}>
+                  <h3 className="capsule-title">{capsule.topic}</h3>
+                  <p className="capsule-content">{capsule.content}</p>
+                  <div className="capsule-footer">
+                    <span>{capsule.updated_at ? new Date(capsule.updated_at).toLocaleDateString() : 'unknown'}</span>
+                    <button className="btn-ghost" onClick={(event) => void archiveCapsule(capsule.id, event)}>
+                      Archive
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {modalOpen ? (
+        <div className="modal-overlay" onClick={() => setModalOpen(false)}>
+          <div className="modal-content glass" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{draft.id ? 'Edit Capsule' : 'New Capsule'}</h2>
+              <button className="btn-ghost icon" onClick={() => setModalOpen(false)}>
                 <X size={20} />
               </button>
             </div>
-            
-            <form onSubmit={handleSave}>
+            <form onSubmit={(event) => void saveDraft(event)}>
               <div className="input-group">
-                <label>Topic</label>
-                <input 
-                  className="input" 
-                  value={currentCapsule.topic}
-                  onChange={e => setCurrentCapsule({...currentCapsule, topic: e.target.value})}
+                <label htmlFor="topic">Topic</label>
+                <input
+                  id="topic"
+                  className="input"
+                  value={draft.topic}
+                  onChange={(event) => setDraft({ ...draft, topic: event.target.value })}
                   required
-                  placeholder="e.g., Auth bypass vulnerability"
+                  minLength={3}
+                  placeholder="Auth bypass in staging"
                 />
               </div>
-              
               <div className="input-group">
-                <label>Content</label>
-                <textarea 
-                  className="textarea" 
-                  rows={6}
-                  value={currentCapsule.content}
-                  onChange={e => setCurrentCapsule({...currentCapsule, content: e.target.value})}
+                <label htmlFor="content">Content</label>
+                <textarea
+                  id="content"
+                  className="textarea"
+                  rows={7}
+                  value={draft.content}
+                  onChange={(event) => setDraft({ ...draft, content: event.target.value })}
                   required
-                  placeholder="Detailed knowledge..."
+                  minLength={10}
+                  placeholder="One fact, fully qualified."
                 />
               </div>
-              
               <div className="input-group">
-                <label>Tags (comma separated)</label>
-                <input 
-                  className="input" 
-                  value={currentCapsule.tags}
-                  onChange={e => setCurrentCapsule({...currentCapsule, tags: e.target.value})}
+                <label htmlFor="tags">Tags (comma separated)</label>
+                <input
+                  id="tags"
+                  className="input"
+                  value={draft.tags}
+                  onChange={(event) => setDraft({ ...draft, tags: event.target.value })}
                   placeholder="security, auth, bug"
                 />
               </div>
-              
               <div className="input-group">
-                <label>Confidence Level</label>
-                <select 
-                  className="input" 
-                  value={currentCapsule.confidence}
-                  onChange={e => setCurrentCapsule({...currentCapsule, confidence: e.target.value})}
+                <label htmlFor="confidence">Confidence</label>
+                <select
+                  id="confidence"
+                  className="input"
+                  value={draft.confidence}
+                  onChange={(event) => setDraft({ ...draft, confidence: event.target.value })}
                 >
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
+                  <option value="hearsay">Hearsay</option>
                 </select>
               </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Capsule</button>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save Capsule
+                </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

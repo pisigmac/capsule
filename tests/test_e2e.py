@@ -1,125 +1,97 @@
 """End-to-end integration tests."""
-import pytest
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from services.parser.parser import CapsuleParser
-from services.shared.models import Capsule, Tag, CapsuleRelationship, init_db, SessionLocal
 from services.search.engine import SearchEngine
+from services.shared.models import Capsule
+from services.store.store import CapsuleStore
 from services.sync.watcher import CapsuleSyncService
 
 
 class TestEndToEnd:
-    """Full workflow integration tests."""
-
     def test_full_workflow_create_search_compose(self, db_session):
-        """Complete workflow: create -> search -> compose."""
-        # 1. Create capsules
-        c1 = Capsule(topic="Auth bypass", content="JWT skipped in staging", confidence="high")
-        c2 = Capsule(topic="DB pool", content="Max 100 connections", confidence="medium")
-        tag = Tag(name="security")
-        db_session.add_all([c1, c2, tag])
-        db_session.commit()
-        c1.tags.append(tag)
-        db_session.commit()
-
-        # 2. Manually index for FTS5
-        db_session.execute("""
-            INSERT INTO capsule_search(rowid, topic, content)
-            VALUES (:id1, :topic1, :content1), (:id2, :topic2, :content2)
-        """, {
-            "id1": str(c1.id), "topic1": c1.topic, "content1": c1.content,
-            "id2": str(c2.id), "topic2": c2.topic, "content2": c2.content,
-        })
+        store = CapsuleStore(db_session)
+        store.create(
+            topic="Auth bypass",
+            content="JWT skipped in staging environment.",
+            tags=["security"],
+            confidence="high",
+        )
+        store.create(
+            topic="DB pool",
+            content="Max 100 connections in the pool.",
+            confidence="medium",
+        )
         db_session.commit()
 
-        # 3. Search
         engine = SearchEngine(db_session)
         results = engine.search("JWT")
         assert len(results) == 1
 
-        # 4. Compose
-        context = engine.compose(tags=["security"])
-        assert "Auth bypass" in context
-        assert "DB pool" not in context  # Not tagged with security
+        composed = engine.compose(tags=["security"])
+        assert "Auth bypass" in composed["context"]
+        assert "DB pool" not in composed["context"]
 
     def test_sync_then_search(self, db_session, tmp_path):
-        """Sync files then search the database."""
-        # 1. Create capsule files
         capsules_dir = tmp_path / "capsules"
-        capsules_dir.mkdir()
-
-        (capsules_dir / "test.capsule.md").write_text("""---
+        (capsules_dir / "test.capsule.md").write_text(
+            """---
 topic: "Integration Test"
 tags: [test, integration]
 confidence: high
 ---
 
 This is an integration test capsule.
-""")
-
-        # 2. Sync
+"""
+        )
         service = CapsuleSyncService(watch_dirs=[str(capsules_dir)])
-        count = service.initial_sync()
-        assert count == 1
+        assert service.initial_sync() == 1
 
-        # 3. Verify in DB
+        db_session.expire_all()
         capsule = db_session.query(Capsule).filter(Capsule.topic == "Integration Test").first()
         assert capsule is not None
         assert capsule.confidence == "high"
         assert len(capsule.tags) == 2
 
+        results = SearchEngine(db_session).search("integration")
+        assert len(results) == 1
+
     def test_relationship_graph(self, db_session):
-        """Create capsules and link them in a graph."""
-        # Create chain: A -> B -> C
-        a = Capsule(topic="A", content="Content A")
-        b = Capsule(topic="B", content="Content B")
-        c = Capsule(topic="C", content="Content C")
-        db_session.add_all([a, b, c])
+        store = CapsuleStore(db_session)
+        a = store.create(topic="Node A item", content="Content A is written.")
+        b = store.create(topic="Node B item", content="Content B is written.")
+        c = store.create(topic="Node C item", content="Content C is written.")
+        store.link(a.id, b.id, "leads_to")
+        store.link(b.id, c.id, "leads_to")
         db_session.commit()
 
-        rel1 = CapsuleRelationship(from_capsule_id=a.id, to_capsule_id=b.id, relationship_type="leads_to")
-        rel2 = CapsuleRelationship(from_capsule_id=b.id, to_capsule_id=c.id, relationship_type="leads_to")
-        db_session.add_all([rel1, rel2])
-        db_session.commit()
-
-        # Verify relationships
+        db_session.refresh(a)
+        db_session.refresh(b)
+        db_session.refresh(c)
         assert len(a.outgoing_relationships) == 1
         assert len(b.incoming_relationships) == 1
         assert len(b.outgoing_relationships) == 1
         assert len(c.incoming_relationships) == 1
 
     def test_stale_and_archive_workflow(self, db_session):
-        """Mark stale capsules and archive them."""
-        from datetime import datetime, timezone, timedelta
-
-        old = Capsule(
-            topic="Old Knowledge",
-            content="This is outdated.",
-            updated_at=datetime.now(timezone.utc) - timedelta(days=120),
-        )
-        db_session.add(old)
+        store = CapsuleStore(db_session)
+        old = store.create(topic="Old Knowledge", content="This is outdated knowledge.")
+        old.updated_at = datetime.utcnow() - timedelta(days=120)
         db_session.commit()
 
-        # Find stale
-        engine = SearchEngine(db_session)
-        stale = engine.stale_capsules(days=90)
+        stale = SearchEngine(db_session).stale_capsules(days=90)
         assert len(stale) == 1
 
-        # Archive
-        old.archived = True
+        store.archive(old.id)
         db_session.commit()
-
-        # Should not appear in default search
-        capsules = db_session.query(Capsule).filter(Capsule.archived == False).all()
-        assert len(capsules) == 0
+        active = db_session.query(Capsule).filter(Capsule.archived == False).all()  # noqa: E712
+        assert len(active) == 0
 
     def test_parser_to_db_roundtrip(self, db_session, tmp_path):
-        """Parse file, save to DB, retrieve, serialize back."""
-        parser = CapsuleParser()
-
-        # Create file
-        file_path = tmp_path / "roundtrip.capsule.md"
-        file_path.write_text("""---
+        file_path = tmp_path / "capsules" / "roundtrip.capsule.md"
+        file_path.parent.mkdir(exist_ok=True)
+        file_path.write_text(
+            """---
 topic: "Roundtrip Test"
 tags: [roundtrip, test]
 source: "test-suite"
@@ -127,37 +99,31 @@ confidence: high
 ---
 
 This content should survive a roundtrip.
-""")
-
-        # Parse
-        parsed = parser.parse_file(file_path)
-
-        # Save to DB
-        capsule = Capsule(
-            topic=parsed.topic,
-            content=parsed.content,
-            freshness=parsed.freshness,
-            source=parsed.source,
-            confidence=parsed.confidence,
-            file_path=str(file_path),
+"""
         )
-        db_session.add(capsule)
+        store = CapsuleStore(db_session, capsules_dir=file_path.parent)
+        capsule = store.upsert_from_file(file_path)
         db_session.commit()
 
-        # Retrieve
         retrieved = db_session.query(Capsule).filter(Capsule.id == capsule.id).first()
         assert retrieved.topic == "Roundtrip Test"
         assert retrieved.source == "test-suite"
-
-        # Serialize back
-        reparsed = ParsedCapsule(
-            topic=retrieved.topic,
-            content=retrieved.content,
-            tags=[t.name for t in retrieved.tags],
-            freshness=retrieved.freshness,
-            source=retrieved.source,
-            confidence=retrieved.confidence,
-        )
-        md = parser.to_markdown(reparsed)
+        assert retrieved.id  # persisted into the file
+        md = Path(retrieved.file_path).read_text()
         assert "Roundtrip Test" in md
         assert "high" in md
+        assert retrieved.id in md
+
+
+class TestMcpProtocol:
+    def test_initialize_and_tools(self):
+        from services.mcp.server import handle
+
+        init = handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        assert init["result"]["serverInfo"]["name"] == "capsule"
+
+        listed = handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+        names = {tool["name"] for tool in listed["result"]["tools"]}
+        assert "search_capsules" in names
+        assert "compose_context" in names
+        assert "create_capsule" in names

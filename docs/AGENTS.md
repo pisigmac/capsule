@@ -1,82 +1,28 @@
 # Agents
 
-## Capsule for AI Agents
+Capsule is meant to be read by agents.
 
-Capsule is designed to be consumed by AI agents. The format is intentionally simple so agents can parse it without complex tooling.
+1. Search: `POST /api/v1/search` with a short query and tags.
+2. Compose: `POST /api/v1/compose` with `max_tokens` sized to the session.
+3. Prefer `confidence_min: medium` unless you explicitly want hearsay.
 
-### Agent Protocol
+## MCP
 
-When an agent starts a session, it should:
-
-1. **Read the workspace index**
-   ```
-   GET /api/v1/capsules?limit=50
-   ```
-
-2. **Query relevant capsules**
-   ```
-   POST /api/v1/search
-   {"query": "auth middleware", "tags": ["security"], "confidence": "high"}
-   ```
-
-3. **Compose context**
-   ```
-   POST /api/v1/compose
-   {"tags": ["auth", "staging"], "max_tokens": 2000}
-   ```
-
-### Agent-Friendly Properties
-
-| Property | Benefit |
-|----------|---------|
-| Atomic size | 50-300 tokens per capsule — fits in context windows |
-| Confidence scoring | Agent can weight facts by reliability |
-| Freshness | Agent knows if knowledge is current |
-| Source attribution | Agent can trace facts to origin |
-| Typed relationships | Agent understands dependencies |
-
-### Example Agent Prompt
-
-```
-You are a senior engineer working on the payment gateway.
-
-Before suggesting changes, read the relevant capsules:
-- Search for "payment" and "auth"
-- Read capsules with confidence >= medium
-- Check relationships for blocked tasks
-
-Current context:
-{composed_context}
+```bash
+capsule mcp
 ```
 
-### MCP Integration
+Stdio JSON-RPC 2.0, protocol `2024-11-05`. Tools: `search_capsules`, `compose_context`, `get_capsule`, `create_capsule`, `list_stale`.
 
-Capsule can expose an MCP (Model Context Protocol) server:
+Example Cursor MCP config:
 
-```python
-# tools/get_capsules
+```json
 {
-  "name": "get_capsules",
-  "description": "Retrieve capsules by tags or query",
-  "parameters": {
-    "tags": ["string"],
-    "query": "string",
-    "confidence": "string"
+  "mcpServers": {
+    "capsule": {
+      "command": "capsule",
+      "args": ["mcp"]
+    }
   }
 }
 ```
-
-### Agent Memory
-
-Use Capsule as an agent's long-term memory:
-- Each session creates a capsule
-- Agent reads previous session capsules before starting
-- Knowledge accumulates instead of being lost
-
-### Best Practices
-
-1. **One fact per capsule** — agents parse faster
-2. **High confidence for critical facts** — agents trust these more
-3. **Tag consistently** — agents rely on tags for filtering
-4. **Link related capsules** — agents follow relationship chains
-5. **Archive obsolete knowledge** — agents don't waste tokens on stale facts
