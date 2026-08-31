@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "capsule"
-version = "1.0.0"
-description = "Atomic knowledge management for the AI era"
+name = "korn"
+version = "0.3.0"
+description = "Atomic knowledge management for AI agents (Capsule)"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Capsule Team", email = "team@capsule.dev"}
+    {name = "Korn"}
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -30,31 +30,30 @@ dependencies = [
     "rich>=13.0.0",
     "watchdog>=3.0.0",
     "pyyaml>=6.0.0",
-    "httpx>=0.26.0",
-    "pytest>=8.0.0",
-    "pytest-cov>=4.1.0",
-    "httpx>=0.26.0",
+    "psycopg[binary]>=3.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
     "black>=24.0.0",
     "ruff>=0.2.0",
-    "mypy>=1.8.0",
-    "pre-commit>=3.6.0",
 ]
 
 [project.scripts]
 capsule = "cli.main:cli"
+korn = "cli.main:cli"
+pykorn = "cli.main:cli"
 
 [project.urls]
-Homepage = "https://github.com/capsule-dev/capsule"
-Repository = "https://github.com/capsule-dev/capsule"
-Issues = "https://github.com/capsule-dev/capsule/issues"
+Homepage = "https://github.com/pisigmac/capsule"
+Repository = "https://github.com/pisigmac/capsule"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["services*", "cli*", "tests*"]
+include = ["services*", "cli*"]
 
 [tool.black]
 line-length = 100
@@ -62,18 +61,14 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.ruff]
 line-length = 100
-select = ["E", "F", "I", "W", "N", "UP", "B", "C4", "SIM"]
-ignore = ["E501"]
 
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=services --cov-report=term-missing --cov-report=xml"
+addopts = "-v --tb=short"
