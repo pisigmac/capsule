@@ -1,75 +1,64 @@
-"""File system watcher for capsule directories."""
-import hashlib
-import time
+"""Filesystem watcher that keeps the SQLite index in sync with .capsule.md files."""
+from __future__ import annotations
+
+import logging
 from pathlib import Path
-from typing import Callable, Dict, Optional, Set
-from threading import Thread, Event
+from typing import Callable, Dict, Optional
 
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
-from ..parser.parser import CapsuleParser, ParsedCapsule
-from ..shared.models import Capsule, Tag, get_db, SessionLocal
+from ..parser.parser import CapsuleParser
+from ..shared.models import get_session_factory
+from ..store.store import CapsuleStore, file_sha256
+
+logger = logging.getLogger("capsule.sync")
 
 
 class CapsuleEventHandler(FileSystemEventHandler):
-    """Handle file system events for capsule files."""
+    """Handle filesystem events for capsule files."""
 
     def __init__(
         self,
         parser: CapsuleParser,
-        on_create: Optional[Callable[[ParsedCapsule, str], None]] = None,
-        on_update: Optional[Callable[[ParsedCapsule, str], None]] = None,
+        on_change: Optional[Callable[[str], None]] = None,
         on_delete: Optional[Callable[[str], None]] = None,
-    ):
+    ) -> None:
         self.parser = parser
-        self.on_create = on_create
-        self.on_update = on_update
+        self.on_change = on_change
         self.on_delete = on_delete
         self._file_hashes: Dict[str, str] = {}
 
     def _is_capsule_file(self, path: str) -> bool:
+        if path.endswith(".tmp"):
+            return False
         return path.endswith(".capsule.md") or path.endswith(".capsule")
 
-    def _get_hash(self, path: str) -> str:
+    def _changed(self, path: str) -> bool:
         try:
-            content = Path(path).read_bytes()
-            return hashlib.sha256(content).hexdigest()
-        except (IOError, OSError):
-            return ""
+            digest = file_sha256(Path(path))
+        except OSError:
+            return True
+        if self._file_hashes.get(path) == digest:
+            return False
+        self._file_hashes[path] = digest
+        return True
 
     def on_created(self, event: FileSystemEvent) -> None:
         if event.is_directory or not self._is_capsule_file(event.src_path):
             return
-
-        try:
-            parsed = self.parser.parse_file(Path(event.src_path))
-            self._file_hashes[event.src_path] = self._get_hash(event.src_path)
-            if self.on_create:
-                self.on_create(parsed, event.src_path)
-        except Exception as e:
-            print(f"Error processing new capsule {event.src_path}: {e}")
+        if self._changed(event.src_path) and self.on_change:
+            self.on_change(event.src_path)
 
     def on_modified(self, event: FileSystemEvent) -> None:
         if event.is_directory or not self._is_capsule_file(event.src_path):
             return
-
-        new_hash = self._get_hash(event.src_path)
-        if self._file_hashes.get(event.src_path) == new_hash:
-            return  # No actual change
-
-        try:
-            parsed = self.parser.parse_file(Path(event.src_path))
-            self._file_hashes[event.src_path] = new_hash
-            if self.on_update:
-                self.on_update(parsed, event.src_path)
-        except Exception as e:
-            print(f"Error processing modified capsule {event.src_path}: {e}")
+        if self._changed(event.src_path) and self.on_change:
+            self.on_change(event.src_path)
 
     def on_deleted(self, event: FileSystemEvent) -> None:
         if event.is_directory or not self._is_capsule_file(event.src_path):
             return
-
         self._file_hashes.pop(event.src_path, None)
         if self.on_delete:
             self.on_delete(event.src_path)
@@ -77,129 +66,85 @@ class CapsuleEventHandler(FileSystemEventHandler):
     def on_moved(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-
-        # Handle rename
         if self._is_capsule_file(event.src_path):
             self._file_hashes.pop(event.src_path, None)
             if self.on_delete:
                 self.on_delete(event.src_path)
-
         if self._is_capsule_file(event.dest_path):
-            try:
-                parsed = self.parser.parse_file(Path(event.dest_path))
-                self._file_hashes[event.dest_path] = self._get_hash(event.dest_path)
-                if self.on_create:
-                    self.on_create(parsed, event.dest_path)
-            except Exception as e:
-                print(f"Error processing moved capsule {event.dest_path}: {e}")
+            if self._changed(event.dest_path) and self.on_change:
+                self.on_change(event.dest_path)
 
 
 class CapsuleSyncService:
-    """Sync service that watches capsule directories and updates the database."""
+    """Watch capsule directories and upsert them into the index."""
 
     def __init__(self, watch_dirs: list, parser: Optional[CapsuleParser] = None):
         self.watch_dirs = [Path(d) for d in watch_dirs]
         self.parser = parser or CapsuleParser()
         self.observer: Optional[Observer] = None
-        self._stop_event = Event()
-        self._thread: Optional[Thread] = None
 
-    def _upsert_capsule(self, parsed: ParsedCapsule, file_path: str) -> None:
-        """Upsert a capsule into the database."""
-        db = SessionLocal()
+    def _session_store(self) -> CapsuleStore:
+        db = get_session_factory()()
+        return CapsuleStore(db)
+
+    def _on_change(self, file_path: str) -> None:
+        store = self._session_store()
         try:
-            # Check if capsule already exists by file path
-            existing = db.query(Capsule).filter(Capsule.file_path == file_path).first()
-
-            if existing:
-                existing.topic = parsed.topic
-                existing.content = parsed.content
-                existing.freshness = parsed.freshness
-                existing.source = parsed.source
-                existing.confidence = parsed.confidence
-                existing.file_path = file_path
-                existing.archived = False
-            else:
-                existing = Capsule(
-                    topic=parsed.topic,
-                    content=parsed.content,
-                    freshness=parsed.freshness,
-                    source=parsed.source,
-                    confidence=parsed.confidence,
-                    file_path=file_path,
-                )
-                db.add(existing)
-
-            db.flush()
-
-            # Update tags
-            existing.tags.clear()
-            for tag_name in parsed.tags:
-                tag = db.query(Tag).filter(Tag.name == tag_name).first()
-                if not tag:
-                    tag = Tag(name=tag_name)
-                    db.add(tag)
-                    db.flush()
-                existing.tags.append(tag)
-
-            db.commit()
-        except Exception as e:
-            db.rollback()
-            raise e
+            store.upsert_from_file(Path(file_path))
+            store.db.commit()
+        except Exception:
+            store.db.rollback()
+            logger.exception("Failed to index %s", file_path)
         finally:
-            db.close()
+            store.db.close()
 
-    def _delete_capsule(self, file_path: str) -> None:
-        """Delete a capsule from the database."""
-        db = SessionLocal()
+    def _on_delete(self, file_path: str) -> None:
+        store = self._session_store()
         try:
-            capsule = db.query(Capsule).filter(Capsule.file_path == file_path).first()
-            if capsule:
-                db.delete(capsule)
-                db.commit()
-        except Exception as e:
-            db.rollback()
-            raise e
+            store.delete_by_path(file_path)
+            store.db.commit()
+        except Exception:
+            store.db.rollback()
+            logger.exception("Failed to drop index for %s", file_path)
         finally:
-            db.close()
+            store.db.close()
 
     def initial_sync(self) -> int:
-        """Perform initial sync of all capsule files."""
-        count = 0
-        for watch_dir in self.watch_dirs:
-            if not watch_dir.exists():
-                continue
-            for file_path in watch_dir.rglob("*.capsule.md"):
-                try:
-                    parsed = self.parser.parse_file(file_path)
-                    self._upsert_capsule(parsed, str(file_path))
-                    count += 1
-                except Exception as e:
-                    print(f"Error syncing {file_path}: {e}")
-        return count
+        store = self._session_store()
+        try:
+            count = 0
+            for watch_dir in self.watch_dirs:
+                if not watch_dir.exists():
+                    continue
+                scoped = CapsuleStore(store.db, capsules_dir=watch_dir, parser=self.parser)
+                count += scoped.reconcile()
+            store.db.commit()
+            return count
+        except Exception:
+            store.db.rollback()
+            raise
+        finally:
+            store.db.close()
 
     def start(self) -> None:
-        """Start the file system watcher."""
         self.observer = Observer()
         handler = CapsuleEventHandler(
             parser=self.parser,
-            on_create=self._upsert_capsule,
-            on_update=self._upsert_capsule,
-            on_delete=self._delete_capsule,
+            on_change=self._on_change,
+            on_delete=self._on_delete,
         )
-
+        scheduled = 0
         for watch_dir in self.watch_dirs:
-            if watch_dir.exists():
-                self.observer.schedule(handler, str(watch_dir), recursive=True)
-
+            watch_dir.mkdir(parents=True, exist_ok=True)
+            self.observer.schedule(handler, str(watch_dir), recursive=True)
+            scheduled += 1
         self.observer.start()
-        print(f"Sync service watching {len(self.watch_dirs)} directories")
+        logger.info("Watching %s director%s", scheduled, "y" if scheduled == 1 else "ies")
 
     def stop(self) -> None:
-        """Stop the file system watcher."""
         if self.observer:
             self.observer.stop()
-            self.observer.join()
+            self.observer.join(timeout=5)
             self.observer = None
 
     def __enter__(self):

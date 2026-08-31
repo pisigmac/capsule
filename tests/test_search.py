@@ -1,132 +1,86 @@
 """Tests for the SearchEngine."""
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
-from services.search.engine import SearchEngine
-from services.shared.models import Capsule, Tag
+from services.search.engine import SearchEngine, estimate_tokens
+from services.store.store import CapsuleStore
 
 
 class TestSearchEngine:
-    """Test suite for full-text search."""
-
     def test_search_by_text(self, db_session):
-        """Engine should find capsules matching text query."""
-        c1 = Capsule(topic="Auth bypass", content="JWT verification skipped in staging")
-        c2 = Capsule(topic="Database", content="Postgres connection pool maxes out")
-        db_session.add_all([c1, c2])
+        store = CapsuleStore(db_session)
+        store.create(topic="Auth bypass", content="JWT verification skipped in staging")
+        store.create(topic="Database", content="Postgres connection pool maxes out")
         db_session.commit()
 
-        # Manually insert into FTS5 for testing
-        db_session.execute("""
-            INSERT INTO capsule_search(rowid, topic, content)
-            VALUES (:id1, :topic1, :content1), (:id2, :topic2, :content2)
-        """, {
-            "id1": str(c1.id), "topic1": c1.topic, "content1": c1.content,
-            "id2": str(c2.id), "topic2": c2.topic, "content2": c2.content,
-        })
-        db_session.commit()
-
-        engine = SearchEngine(db_session)
-        results = engine.search("JWT")
-
+        results = SearchEngine(db_session).search("JWT")
         assert len(results) == 1
         assert results[0]["topic"] == "Auth bypass"
 
     def test_search_with_filters(self, db_session):
-        """Engine should respect confidence and archived filters."""
-        c1 = Capsule(topic="High conf", content="Content", confidence="high")
-        c2 = Capsule(topic="Low conf", content="Content", confidence="low")
-        db_session.add_all([c1, c2])
+        store = CapsuleStore(db_session)
+        store.create(topic="High conf item", content="Shared searchable content here", confidence="high")
+        store.create(topic="Low conf item", content="Shared searchable content here", confidence="low")
         db_session.commit()
 
-        db_session.execute("""
-            INSERT INTO capsule_search(rowid, topic, content)
-            VALUES (:id1, :topic1, :content1), (:id2, :topic2, :content2)
-        """, {
-            "id1": str(c1.id), "topic1": c1.topic, "content1": c1.content,
-            "id2": str(c2.id), "topic2": c2.topic, "content2": c2.content,
-        })
-        db_session.commit()
-
-        engine = SearchEngine(db_session)
-        results = engine.search("Content", confidence="high")
-
+        results = SearchEngine(db_session).search("content", confidence="high")
         assert len(results) == 1
-        assert results[0]["topic"] == "High conf"
+        assert results[0]["topic"] == "High conf item"
 
     def test_search_by_tags(self, db_session):
-        """Engine should find capsules by tags."""
-        c1 = Capsule(topic="Auth", content="Content")
-        c2 = Capsule(topic="DB", content="Content")
-        tag = Tag(name="security")
-        db_session.add_all([c1, c2, tag])
-        db_session.commit()
-        c1.tags.append(tag)
+        store = CapsuleStore(db_session)
+        store.create(topic="Auth notes", content="Content about login flow.", tags=["security"])
+        store.create(topic="DB notes", content="Content about storage.", tags=["database"])
         db_session.commit()
 
-        engine = SearchEngine(db_session)
-        results = engine.search_by_tags(["security"])
-
+        results = SearchEngine(db_session).search_by_tags(["security"])
         assert len(results) == 1
-        assert results[0]["topic"] == "Auth"
+        assert results[0]["topic"] == "Auth notes"
+
+    def test_search_by_tags_requires_all(self, db_session):
+        store = CapsuleStore(db_session)
+        store.create(topic="Both tags", content="Content about both topics.", tags=["auth", "staging"])
+        store.create(topic="One tag only", content="Content about auth only.", tags=["auth"])
+        db_session.commit()
+
+        results = SearchEngine(db_session).search_by_tags(["auth", "staging"], match_all=True)
+        assert len(results) == 1
+        assert results[0]["topic"] == "Both tags"
 
     def test_compose_context(self, db_session):
-        """Engine should compose a context window from capsules."""
-        c1 = Capsule(topic="Fact One", content="First fact content.")
-        c2 = Capsule(topic="Fact Two", content="Second fact content.")
-        db_session.add_all([c1, c2])
+        store = CapsuleStore(db_session)
+        store.create(topic="Fact One", content="First fact content.")
+        store.create(topic="Fact Two", content="Second fact content.")
         db_session.commit()
 
-        engine = SearchEngine(db_session)
-        context = engine.compose(max_tokens=1000)
-
-        assert "Fact One" in context
-        assert "Fact Two" in context
+        result = SearchEngine(db_session).compose(max_tokens=1000)
+        assert "Fact One" in result["context"]
+        assert "Fact Two" in result["context"]
+        assert result["capsule_count"] == 2
 
     def test_compose_respects_token_limit(self, db_session):
-        """Engine should not exceed token budget."""
-        # Create a very long capsule
-        long_content = "word " * 5000
-        c1 = Capsule(topic="Long", content=long_content)
-        db_session.add(c1)
+        CapsuleStore(db_session).create(topic="Long", content=("word " * 5000).strip())
         db_session.commit()
-
-        engine = SearchEngine(db_session)
-        context = engine.compose(max_tokens=100)
-
-        # Rough token estimate should be under limit
-        assert len(context.split()) <= 100 + 50  # Allow some margin for headers
+        result = SearchEngine(db_session).compose(max_tokens=100)
+        assert estimate_tokens(result["context"]) <= 150
+        assert result["truncated"] is True
 
     def test_stale_capsules(self, db_session):
-        """Engine should find capsules not updated recently."""
-        old = Capsule(
-            topic="Old",
-            content="Content",
-            updated_at=datetime.now(timezone.utc) - timedelta(days=100),
-        )
-        fresh = Capsule(
-            topic="Fresh",
-            content="Content",
-            updated_at=datetime.now(timezone.utc),
-        )
-        db_session.add_all([old, fresh])
+        store = CapsuleStore(db_session)
+        old = store.create(topic="Old knowledge", content="Content that aged out.")
+        store.create(topic="Fresh knowledge", content="Content that is current.")
+        old.updated_at = datetime.utcnow() - timedelta(days=100)
         db_session.commit()
 
-        engine = SearchEngine(db_session)
-        stale = engine.stale_capsules(days=90)
-
+        stale = SearchEngine(db_session).stale_capsules(days=90)
         assert len(stale) == 1
-        assert stale[0]["topic"] == "Old"
+        assert stale[0]["topic"] == "Old knowledge"
 
     def test_compose_with_confidence_filter(self, db_session):
-        """Engine should filter by minimum confidence."""
-        c1 = Capsule(topic="High", content="Content", confidence="high")
-        c2 = Capsule(topic="Low", content="Content", confidence="low")
-        db_session.add_all([c1, c2])
+        store = CapsuleStore(db_session)
+        store.create(topic="High", content="Content worth keeping.", confidence="high")
+        store.create(topic="Low", content="Content less certain here.", confidence="low")
         db_session.commit()
 
-        engine = SearchEngine(db_session)
-        context = engine.compose(confidence_min="medium")
-
-        assert "High" in context
-        assert "Low" not in context
+        result = SearchEngine(db_session).compose(confidence_min="medium")
+        assert "High" in result["context"]
+        assert "Low" not in result["context"]
