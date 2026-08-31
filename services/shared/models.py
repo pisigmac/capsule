@@ -1,57 +1,80 @@
-"""SQLAlchemy models for Capsule."""
+"""SQLAlchemy models. The database is a derived index of .capsule.md files."""
+from __future__ import annotations
+
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import (
-    Column, String, DateTime, Boolean, Text, ForeignKey, Table, Integer, event,
-    create_engine, select, Index, text
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    event,
+    text,
 )
-from sqlalchemy.orm import declarative_base, relationship, Session, sessionmaker
-from sqlalchemy import Uuid as SQLiteUUID
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from .config import config
 
 Base = declarative_base()
 
-# Association table for many-to-many: capsules <-> tags
 capsule_tags = Table(
     "capsule_tags",
     Base.metadata,
-    Column("capsule_id", SQLiteUUID, ForeignKey("capsules.id", ondelete="CASCADE"), primary_key=True),
-    Column("tag_id", SQLiteUUID, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "capsule_rowid",
+        Integer,
+        ForeignKey("capsules.rowid", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class Capsule(Base):
-    """A single atomic unit of knowledge."""
+    """Indexed copy of one atomic knowledge file."""
+
     __tablename__ = "capsules"
 
-    id = Column(SQLiteUUID, primary_key=True, default=uuid.uuid4)
+    rowid = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()), index=True)
     topic = Column(String(500), nullable=False, index=True)
     content = Column(Text, nullable=False)
-    freshness = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    freshness = Column(DateTime, nullable=False, default=utcnow)
     source = Column(String(500), nullable=True)
     confidence = Column(String(20), nullable=False, default="medium")
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
     archived = Column(Boolean, nullable=False, default=False)
-    file_path = Column(String(1000), nullable=True)
+    file_path = Column(String(1000), nullable=True, unique=True)
+    file_hash = Column(String(64), nullable=True)
 
-    # Relationships
     tags = relationship("Tag", secondary=capsule_tags, back_populates="capsules")
     outgoing_relationships = relationship(
         "CapsuleRelationship",
         foreign_keys="CapsuleRelationship.from_capsule_id",
         back_populates="from_capsule",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
     incoming_relationships = relationship(
         "CapsuleRelationship",
         foreign_keys="CapsuleRelationship.to_capsule_id",
         back_populates="to_capsule",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
@@ -62,7 +85,7 @@ class Capsule(Base):
 
     def to_dict(self) -> dict:
         return {
-            "id": str(self.id),
+            "id": self.id,
             "topic": self.topic,
             "content": self.content,
             "freshness": self.freshness.isoformat() if self.freshness else None,
@@ -77,37 +100,36 @@ class Capsule(Base):
 
 
 class Tag(Base):
-    """A tag for categorizing capsules."""
     __tablename__ = "tags"
 
-    id = Column(SQLiteUUID, primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True, index=True)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     capsules = relationship("Capsule", secondary=capsule_tags, back_populates="tags")
 
     def to_dict(self) -> dict:
         return {
-            "id": str(self.id),
+            "id": self.id,
             "name": self.name,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
 class CapsuleRelationship(Base):
-    """A relationship between two capsules."""
     __tablename__ = "capsule_relationships"
 
-    id = Column(SQLiteUUID, primary_key=True, default=uuid.uuid4)
-    from_capsule_id = Column(SQLiteUUID, ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False)
-    to_capsule_id = Column(SQLiteUUID, ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    from_capsule_id = Column(String(36), ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False)
+    to_capsule_id = Column(String(36), ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False)
     relationship_type = Column(String(50), nullable=False, default="relates_to")
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     from_capsule = relationship("Capsule", foreign_keys=[from_capsule_id], back_populates="outgoing_relationships")
     to_capsule = relationship("Capsule", foreign_keys=[to_capsule_id], back_populates="incoming_relationships")
 
     __table_args__ = (
+        UniqueConstraint("from_capsule_id", "to_capsule_id", "relationship_type", name="uq_rel_edge"),
         Index("ix_rel_from", "from_capsule_id"),
         Index("ix_rel_to", "to_capsule_id"),
         Index("ix_rel_type", "relationship_type"),
@@ -116,75 +138,195 @@ class CapsuleRelationship(Base):
     def to_dict(self) -> dict:
         return {
             "id": str(self.id),
-            "from_capsule_id": str(self.from_capsule_id),
-            "to_capsule_id": str(self.to_capsule_id),
+            "from_capsule_id": self.from_capsule_id,
+            "to_capsule_id": self.to_capsule_id,
             "relationship_type": self.relationship_type,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
-class SearchIndex(Base):
-    """FTS5 virtual table for full-text search."""
-    __tablename__ = "capsule_search"
-
-    rowid = Column(Integer, primary_key=True)
-    topic = Column(String(500), nullable=False)
-    content = Column(Text, nullable=False)
-
-    # Note: FTS5 tables are created via raw SQL, not SQLAlchemy declarative
-    # This class is for reference only
+engine: Optional[Engine] = None
+SessionLocal: Optional[sessionmaker] = None
 
 
-# Engine and session factory
-engine = create_engine(
-    config.database_url,
-    connect_args={"check_same_thread": False} if config.is_sqlite else {},
-    echo=False,
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def _sqlite_pragmas(dbapi_conn, _connection_record) -> None:
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()
+
+
+def reset_engine() -> Engine:
+    """Rebuild the engine from current config. Used by tests and startup."""
+    global engine, SessionLocal
+    if engine is not None:
+        engine.dispose()
+
+    kwargs: dict = {"echo": False, "future": True, "pool_pre_ping": True}
+    if config.is_sqlite:
+        kwargs["connect_args"] = {"check_same_thread": False}
+        kwargs["poolclass"] = NullPool
+        kwargs.pop("pool_pre_ping")
+    else:
+        kwargs["pool_size"] = config.pool_size
+        kwargs["max_overflow"] = max(config.pool_size, 10)
+        kwargs["pool_recycle"] = 1800
+
+    engine = create_engine(config.database_url, **kwargs)
+    if config.is_sqlite:
+        event.listen(engine, "connect", _sqlite_pragmas)
+
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
+    return engine
+
+
+def get_engine() -> Engine:
+    if engine is None:
+        reset_engine()
+    assert engine is not None
+    return engine
+
+
+def get_session_factory() -> sessionmaker:
+    if SessionLocal is None:
+        reset_engine()
+    assert SessionLocal is not None
+    return SessionLocal
 
 
 def get_db() -> Session:
-    """Get a database session."""
-    db = SessionLocal()
+    db = get_session_factory()()
     try:
         yield db
     finally:
         db.close()
 
 
-def init_db() -> None:
-    """Initialize the database, creating all tables and FTS5 index."""
-    Base.metadata.create_all(bind=engine)
+_STARTUP_LOCK_KEY = 912001
 
-    # Create FTS5 virtual table for search
-    with engine.connect() as conn:
-        conn.execute(text("""
+
+def _init_sqlite_search(conn) -> None:
+    conn.execute(
+        text(
+            """
             CREATE VIRTUAL TABLE IF NOT EXISTS capsule_search USING fts5(
-                topic, content,
+                topic,
+                content,
                 content='capsules',
-                content_rowid='id'
+                content_rowid='rowid',
+                tokenize='porter unicode61'
             )
-        """))
-        # Triggers to keep FTS5 in sync
-        conn.execute(text("""
+            """
+        )
+    )
+    conn.execute(
+        text(
+            """
             CREATE TRIGGER IF NOT EXISTS capsules_ai AFTER INSERT ON capsules BEGIN
                 INSERT INTO capsule_search(rowid, topic, content)
-                VALUES (new.id, new.topic, new.content);
+                VALUES (new.rowid, new.topic, new.content);
             END
-        """))
-        conn.execute(text("""
+            """
+        )
+    )
+    conn.execute(
+        text(
+            """
             CREATE TRIGGER IF NOT EXISTS capsules_ad AFTER DELETE ON capsules BEGIN
                 INSERT INTO capsule_search(capsule_search, rowid, topic, content)
-                VALUES ('delete', old.id, old.topic, old.content);
+                VALUES ('delete', old.rowid, old.topic, old.content);
             END
-        """))
-        conn.execute(text("""
+            """
+        )
+    )
+    conn.execute(
+        text(
+            """
             CREATE TRIGGER IF NOT EXISTS capsules_au AFTER UPDATE ON capsules BEGIN
                 INSERT INTO capsule_search(capsule_search, rowid, topic, content)
-                VALUES ('delete', old.id, old.topic, old.content);
+                VALUES ('delete', old.rowid, old.topic, old.content);
                 INSERT INTO capsule_search(rowid, topic, content)
-                VALUES (new.id, new.topic, new.content);
+                VALUES (new.rowid, new.topic, new.content);
             END
-        """))
+            """
+        )
+    )
+
+
+def _init_postgres_search(conn) -> None:
+    conn.execute(text("ALTER TABLE capsules ADD COLUMN IF NOT EXISTS search_vector tsvector"))
+    conn.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_capsules_search_vector
+            ON capsules USING GIN (search_vector)
+            """
+        )
+    )
+    conn.execute(
+        text(
+            """
+            CREATE OR REPLACE FUNCTION capsules_search_vector_update() RETURNS trigger AS $$
+            BEGIN
+              NEW.search_vector :=
+                setweight(to_tsvector('english', coalesce(NEW.topic, '')), 'A') ||
+                setweight(to_tsvector('english', coalesce(NEW.content, '')), 'B');
+              RETURN NEW;
+            END
+            $$ LANGUAGE plpgsql
+            """
+        )
+    )
+    conn.execute(text("DROP TRIGGER IF EXISTS capsules_search_vector_trigger ON capsules"))
+    conn.execute(
+        text(
+            """
+            CREATE TRIGGER capsules_search_vector_trigger
+            BEFORE INSERT OR UPDATE OF topic, content ON capsules
+            FOR EACH ROW EXECUTE FUNCTION capsules_search_vector_update()
+            """
+        )
+    )
+    conn.execute(
+        text(
+            """
+            UPDATE capsules SET search_vector =
+              setweight(to_tsvector('english', coalesce(topic, '')), 'A') ||
+              setweight(to_tsvector('english', coalesce(content, '')), 'B')
+            WHERE search_vector IS NULL
+            """
+        )
+    )
+
+
+def init_db() -> None:
+    """Create tables and the backend-specific search index. Safe to call repeatedly."""
+    bind = get_engine()
+    Base.metadata.create_all(bind=bind)
+
+    with bind.connect() as conn:
+        if bind.dialect.name == "sqlite":
+            _init_sqlite_search(conn)
+        elif bind.dialect.name == "postgresql":
+            _init_postgres_search(conn)
+        else:
+            raise RuntimeError(f"Unsupported database dialect: {bind.dialect.name}")
         conn.commit()
+
+
+def try_startup_lock(db: Session) -> bool:
+    """Postgres advisory lock so only one API worker reconciles. SQLite always proceeds."""
+    bind = db.get_bind()
+    if bind.dialect.name != "postgresql":
+        return True
+    locked = db.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": _STARTUP_LOCK_KEY}).scalar()
+    return bool(locked)
+
+
+def release_startup_lock(db: Session) -> None:
+    bind = db.get_bind()
+    if bind.dialect.name != "postgresql":
+        return
+    db.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _STARTUP_LOCK_KEY})

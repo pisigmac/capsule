@@ -1,87 +1,17 @@
-# Environment Configuration
+# Environment
 
-## Configuration Sources
-
-Capsule reads configuration in this priority order:
-1. Environment variables (highest priority)
-2. `.env` file
-3. Default values (lowest priority)
-
-## Required Variables
-
-None. Capsule works out of the box with defaults.
-
-## Optional Variables
-
-### Database
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CAPSULE_DATABASE_URL` | `sqlite:///capsule.db` | Database connection string |
-
-### Paths
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CAPSULES_DIR` | `./capsules` | Main capsules directory |
-| `CAPSULES_SHARED_DIR` | `./capsules/shared` | Cross-project shared capsules |
-| `CAPSULES_ARCHIVED_DIR` | `./capsules/archived` | Archived capsules |
-
-### API
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `API_HOST` | `0.0.0.0` | API server host |
-| `API_PORT` | `9000` | API server port |
-| `CAPSULE_API_URL` | `http://localhost:9000/api/v1` | API base URL for CLI |
-
-### Search
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SEARCH_LIMIT` | `50` | Default search result limit |
-
-### Sync
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SYNC_INTERVAL` | `30` | File watcher polling interval (seconds) |
-| `AUTO_ARCHIVE_DAYS` | `90` | Days before knowledge is considered stale |
-
-### Development
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEBUG` | `false` | Enable debug mode |
-| `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
-
-## Example .env
-
-```bash
-# Production
-CAPSULE_DATABASE_URL=sqlite:////data/capsule.db
-CAPSULES_DIR=/data/capsules
-API_HOST=0.0.0.0
-API_PORT=9000
-
-# Development
-DEBUG=true
-LOG_LEVEL=DEBUG
-```
-
-## Docker Environment
-
-When running in Docker, use a `.env` file or pass variables via `docker-compose.yml`:
-
-```yaml
-environment:
-  - CAPSULE_DATABASE_URL=sqlite:///data/capsule.db
-  - CAPSULES_DIR=/data/capsules
-```
-
-## Security Notes
-
-- Never commit `.env` files to version control
-- Use `.env.example` as a template
-- For production, use secrets management (Vault, AWS Secrets Manager)
-- Database URL should not contain credentials in plain text
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CAPSULE_DATABASE_URL` | `sqlite:///capsule.db` | Index DSN. `postgres://` and `postgresql://` are rewritten to `postgresql+psycopg://` |
+| `CAPSULES_DIR` | `./capsules` | Canonical files |
+| `API_HOST` | `127.0.0.1` | Bind address for docs; uvicorn flag wins |
+| `API_PORT` | `9100` | Host port. 9000 is MinIO on many machines. |
+| `CAPSULE_WATCH` | `true` | In-process file watcher. Docker API sets `false`; `sync` process watches |
+| `CAPSULE_RECONCILE` | `true` | Reindex files on API boot |
+| `CAPSULE_DB_POOL_SIZE` | `5` | SQLAlchemy pool size (Postgres only) |
+| `CAPSULE_CORS_ORIGINS` | localhost UI origins | Comma-separated allow-list |
+| `CAPSULE_API_TOKEN` | unset | If set, require Bearer token |
+| `SEARCH_LIMIT` | `50` | Default search cap |
+| `AUTO_ARCHIVE_DAYS` | `90` | Stale window (query default) |
+| `LOG_LEVEL` | `INFO` | |
+| `POSTGRES_PASSWORD` | `capsule` | Docker Compose only |
