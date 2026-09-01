@@ -36,3 +36,30 @@ Stop:
 ```bash
 ./scripts/stop_all.sh
 ```
+
+## PyPI (`korn` and `pykorn`)
+
+Releases upload the same package under both names. CI lives in `.github/workflows/pypi.yml`.
+
+1. Create a GitHub Actions environment named `pypi`.
+2. Add repository secret `PYPI_API_TOKEN` (PyPI API token, username `__token__`). Use an account-scoped token so both projects can publish. Do not commit the token.
+3. Bump `version` in `pyproject.toml`.
+4. Tag and push, or publish a GitHub Release:
+
+```bash
+git tag v0.3.1
+git push origin v0.3.1
+```
+
+The tag after `v` must match `pyproject.toml`. The workflow runs tests, builds both names, then uploads. Re-runs skip files that already exist.
+
+Trusted publishing (OIDC) is enabled (`id-token: write`). After you add this repo as a trusted publisher on both PyPI projects (`pisigmac/capsule`, workflow `pypi.yml`, environment `pypi`), you can remove the `password:` lines.
+
+Manual dry run: Actions → Publish to PyPI → Run workflow → dry_run.
+
+Local build only:
+
+```bash
+bash scripts/build_pypi.sh
+python -m twine check dist/korn/* dist/pykorn/*
+```
