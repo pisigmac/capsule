@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Capsule API",
         description="Atomic knowledge management. Files are the source of truth.",
-        version="0.3.0",
+        version="0.4.0",
         lifespan=lifespan,
     )
 
@@ -125,7 +125,7 @@ def create_app() -> FastAPI:
         return {
             "status": status,
             "service": "capsule-api",
-            "version": "0.3.0",
+            "version": "0.4.0",
             "database": "ok" if db_ok else "error",
             "dialect": dialect,
             "capsules": capsule_count,

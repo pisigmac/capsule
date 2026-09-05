@@ -62,6 +62,10 @@ class Capsule(Base):
     archived = Column(Boolean, nullable=False, default=False)
     file_path = Column(String(1000), nullable=True, unique=True)
     file_hash = Column(String(64), nullable=True)
+    content_hash = Column(String(64), nullable=True, index=True)
+    embedding = Column(Text, nullable=True)
+    embedding_model = Column(String(200), nullable=True)
+    embedding_hash = Column(String(64), nullable=True)
 
     tags = relationship("Tag", secondary=capsule_tags, back_populates="capsules")
     outgoing_relationships = relationship(
@@ -96,6 +100,8 @@ class Capsule(Base):
             "archived": self.archived,
             "file_path": self.file_path,
             "tags": [t.name for t in self.tags],
+            "content_hash": self.content_hash,
+            "deduped": bool(getattr(self, "deduped", False)),
         }
 
 
@@ -301,12 +307,34 @@ def _init_postgres_search(conn) -> None:
     )
 
 
+def _ensure_columns(conn, dialect: str) -> None:
+    """Add columns introduced after 0.3.0 so existing index DBs keep working."""
+    specs = [
+        ("content_hash", "VARCHAR(64)"),
+        ("embedding", "TEXT"),
+        ("embedding_model", "VARCHAR(200)"),
+        ("embedding_hash", "VARCHAR(64)"),
+    ]
+    if dialect == "postgresql":
+        for name, decl in specs:
+            conn.execute(text(f"ALTER TABLE capsules ADD COLUMN IF NOT EXISTS {name} {decl}"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_capsules_content_hash ON capsules (content_hash)"))
+        return
+    info = conn.execute(text("PRAGMA table_info(capsules)")).mappings().all()
+    have = {row["name"] for row in info}
+    for name, decl in specs:
+        if name not in have:
+            conn.execute(text(f"ALTER TABLE capsules ADD COLUMN {name} {decl}"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_capsules_content_hash ON capsules (content_hash)"))
+
+
 def init_db() -> None:
     """Create tables and the backend-specific search index. Safe to call repeatedly."""
     bind = get_engine()
     Base.metadata.create_all(bind=bind)
 
     with bind.connect() as conn:
+        _ensure_columns(conn, bind.dialect.name)
         if bind.dialect.name == "sqlite":
             _init_sqlite_search(conn)
         elif bind.dialect.name == "postgresql":

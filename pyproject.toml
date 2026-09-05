@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "korn"
-version = "0.3.0"
+version = "0.4.0"
 description = "Atomic knowledge management for AI agents (Capsule)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -31,6 +31,7 @@ dependencies = [
     "watchdog>=3.0.0",
     "pyyaml>=6.0.0",
     "psycopg[binary]>=3.1.0",
+    "mcp>=1.8.0",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,9 @@ dev = [
     "httpx>=0.26.0",
     "black>=24.0.0",
     "ruff>=0.2.0",
+]
+embed = [
+    "sentence-transformers>=3.0.0",
 ]
 
 [project.scripts]

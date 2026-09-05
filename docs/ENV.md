@@ -15,3 +15,10 @@
 | `AUTO_ARCHIVE_DAYS` | `90` | Stale window (query default) |
 | `LOG_LEVEL` | `INFO` | |
 | `POSTGRES_PASSWORD` | `capsule` | Docker Compose only |
+| `CAPSULE_GIT_COMMIT` | `false` | Commit writes under `CAPSULES_DIR` |
+| `CAPSULE_GIT_INIT` | `false` | `git init` that directory if it is not a work tree |
+| `CAPSULE_GIT_DEBOUNCE` | `2` | Seconds to coalesce commits |
+| `CAPSULE_GIT_AUTHOR` | `Capsule <capsule@localhost>` | Commit author |
+| `CAPSULE_EMBED` | `false` | Enable optional embedding index |
+| `CAPSULE_EMBED_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | Local model (`pip install korn[embed]`) |
+| `CAPSULE_EMBED_CANDIDATES` | `2000` | Max rows scored in semantic search |

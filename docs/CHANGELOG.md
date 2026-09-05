@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Dedup on create: same fact body returns the existing capsule and merges tags
+- Optional git auto-commit of `capsules/` (`CAPSULE_GIT_COMMIT`)
+- MCP uses the official Python SDK (stdio or Streamable HTTP)
+- Optional embeddings extra for `semantic` / `hybrid` search; FTS remains default
+
 ## 0.3.0
 
 - PostgreSQL backend with `tsvector` + GIN full-text search

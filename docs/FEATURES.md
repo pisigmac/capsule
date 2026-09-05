@@ -10,7 +10,10 @@ Ships today:
 - Typed relationships persisted back into frontmatter
 - Stale detection
 - Optional bearer token
-- MCP stdio server (`capsule mcp`)
+- MCP server via the official SDK (`capsule mcp`, optional `--http`)
+- Content-hash dedup on create
+- Optional git auto-commit of `capsules/`
+- Optional embeddings (`pip install korn[embed]`) for semantic/hybrid search
 - Production UI (library, compose, stale) behind nginx in Docker
 
-Not in this repo: billing, teams, cloud sync, Notion/Obsidian importers, embeddings.
+Not in this repo: billing, teams, cloud sync, Notion/Obsidian importers.

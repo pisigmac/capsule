@@ -96,6 +96,48 @@ class CapsuleConfig:
     def is_postgres(self) -> bool:
         return self.database_url.startswith("postgresql")
 
+    @property
+    def git_commit(self) -> bool:
+        return _bool("CAPSULE_GIT_COMMIT", False)
+
+    @property
+    def git_init(self) -> bool:
+        return _bool("CAPSULE_GIT_INIT", False)
+
+    @property
+    def git_debounce(self) -> float:
+        raw = os.getenv("CAPSULE_GIT_DEBOUNCE", "2")
+        try:
+            return max(0.0, float(raw))
+        except ValueError:
+            return 2.0
+
+    @property
+    def git_author_name(self) -> str:
+        raw = os.getenv("CAPSULE_GIT_AUTHOR", "Capsule <capsule@localhost>")
+        if "<" in raw:
+            return raw.split("<", 1)[0].strip() or "Capsule"
+        return raw.strip() or "Capsule"
+
+    @property
+    def git_author_email(self) -> str:
+        raw = os.getenv("CAPSULE_GIT_AUTHOR", "Capsule <capsule@localhost>")
+        if "<" in raw and ">" in raw:
+            return raw.split("<", 1)[1].split(">", 1)[0].strip() or "capsule@localhost"
+        return "capsule@localhost"
+
+    @property
+    def embed_enabled(self) -> bool:
+        return _bool("CAPSULE_EMBED", False)
+
+    @property
+    def embed_model(self) -> str:
+        return os.getenv("CAPSULE_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+
+    @property
+    def embed_candidate_limit(self) -> int:
+        return _int("CAPSULE_EMBED_CANDIDATES", 2000)
+
     def ensure_dirs(self) -> None:
         """Create capsule directories if they do not exist."""
         self.capsules_dir.mkdir(parents=True, exist_ok=True)

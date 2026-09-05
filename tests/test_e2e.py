@@ -116,14 +116,12 @@ This content should survive a roundtrip.
 
 
 class TestMcpProtocol:
-    def test_initialize_and_tools(self):
-        from services.mcp.server import handle
+    def test_sdk_registers_tools(self):
+        from services.mcp.server import build_mcp
 
-        init = handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
-        assert init["result"]["serverInfo"]["name"] == "capsule"
-
-        listed = handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-        names = {tool["name"] for tool in listed["result"]["tools"]}
+        names = {tool.name for tool in build_mcp()._tool_manager.list_tools()}
         assert "search_capsules" in names
         assert "compose_context" in names
         assert "create_capsule" in names
+        assert "get_capsule" in names
+        assert "list_stale" in names

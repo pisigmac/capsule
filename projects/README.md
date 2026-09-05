@@ -1,3 +1,27 @@
+---
+created: 2026-09-01T05:23:04.160076+00:00
+id: 2022462404b2
+modified: 2026-09-01T05:23:04.160076+00:00
+source: daemon
+status: active
+tags:
+  - readme
+type: overview
+---
+
+# capsule
+
+**Project:** `capsule`
+
+**Path:** `capsule`
+
+**Description:** <div align="center">
+  <h1>Capsule</h1>
+  <p><b>Atomic knowledge for AI agents.</b></p>
+</div>
+
+## README
+
 <div align="center">
   <h1>Capsule</h1>
   <p><b>Atomic knowledge for AI agents.</b></p>
@@ -72,20 +96,7 @@ capsule mcp    # stdio MCP server for agents
 
 ## MCP
 
-Point an MCP client at `capsule mcp` (official SDK, stdio). Optional: `capsule mcp --http --port 9101`.
-
-Tools: `search_capsules`, `compose_context`, `get_capsule`, `create_capsule`, `list_stale`.
-
-```json
-{
-  "mcpServers": {
-    "capsule": {
-      "command": "capsule",
-      "args": ["mcp"]
-    }
-  }
-}
-```
+Point an MCP client at `capsule mcp` (stdio). Tools: `search_capsules`, `compose_context`, `get_capsule`, `create_capsule`, `list_stale`.
 
 ## Architecture
 
@@ -102,3 +113,4 @@ pytest
 ## License
 
 MIT
+
