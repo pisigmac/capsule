@@ -13,6 +13,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
 
+from services.gitcommit.committer import status as git_status
 from services.mcp.server import serve as serve_mcp
 from services.parser.parser import CapsuleParser
 from services.search.engine import SearchEngine
@@ -96,7 +97,10 @@ def new(topic, tag, source, confidence, editor):
             confidence=confidence,
         )
         db.commit()
-        console.print(f"[green]Created[/green] {capsule.id}")
+        if getattr(capsule, "deduped", False):
+            console.print(f"[yellow]Already exists[/yellow] {capsule.id}")
+        else:
+            console.print(f"[green]Created[/green] {capsule.id}")
         console.print(f"[dim]{capsule.file_path}[/dim]")
     except StoreError as exc:
         db.rollback()
@@ -112,7 +116,8 @@ def new(topic, tag, source, confidence, editor):
 @click.option("--confidence", "-c", type=click.Choice(["high", "medium", "low", "hearsay"]))
 @click.option("--archived", is_flag=True, help="Include archived capsules")
 @click.option("--limit", "-l", default=20, help="Max results")
-def search(query, tag, confidence, archived, limit):
+@click.option("--mode", type=click.Choice(["fts", "semantic", "hybrid"]), default="fts")
+def search(query, tag, confidence, archived, limit, mode):
     """Search capsules."""
     db = session()
     try:
@@ -123,6 +128,7 @@ def search(query, tag, confidence, archived, limit):
             confidence=confidence,
             archived=True if archived else False,
             limit=limit,
+            mode=mode,
         )
         if not results:
             console.print("[dim]No capsules found.[/dim]")
@@ -204,7 +210,8 @@ def link(from_id, to_id, rel_type):
 @click.option("--confidence-min", "-c", type=click.Choice(["high", "medium", "low", "hearsay"]), default="medium")
 @click.option("--max-tokens", "-m", default=4000, help="Max token budget")
 @click.option("--output", "-o", type=click.Path(), help="Write to file instead of stdout")
-def compose(tags, query, confidence_min, max_tokens, output):
+@click.option("--mode", type=click.Choice(["fts", "semantic", "hybrid"]), default="fts")
+def compose(tags, query, confidence_min, max_tokens, output, mode):
     """Compose a context window from capsules."""
     db = session()
     try:
@@ -214,6 +221,7 @@ def compose(tags, query, confidence_min, max_tokens, output):
             query=query,
             confidence_min=confidence_min,
             max_tokens=max_tokens,
+            mode=mode,
         )
         context = result["context"]
         if output:
@@ -348,10 +356,28 @@ def init():
         db.close()
 
 
+@cli.command("git")
+@click.argument("action", type=click.Choice(["status", "on", "off"]), default="status")
+def git_cmd(action):
+    """Show or toggle git auto-commit of capsules/ (this process only)."""
+    if action == "on":
+        os.environ["CAPSULE_GIT_COMMIT"] = "true"
+    elif action == "off":
+        os.environ["CAPSULE_GIT_COMMIT"] = "false"
+    info = git_status()
+    console.print(
+        f"enabled={info['enabled']} git={info['git']} repo={info['repo'] or '-'} "
+        f"last={info['last_commit'] or '-'}"
+    )
+
+
 @cli.command("mcp")
-def mcp_cmd():
-    """Run the Capsule MCP server on stdio."""
-    serve_mcp()
+@click.option("--http", is_flag=True, help="Streamable HTTP instead of stdio")
+@click.option("--host", default="127.0.0.1")
+@click.option("--port", default=9101, type=int)
+def mcp_cmd(http, host, port):
+    """Run the Capsule MCP server (official SDK, stdio or HTTP)."""
+    serve_mcp(http=http, host=host, port=port)
 
 
 if __name__ == "__main__":

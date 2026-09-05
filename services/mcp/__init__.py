@@ -1,3 +1,3 @@
-from .server import handle, serve
+from .server import build_mcp, call_tool, serve
 
-__all__ = ["handle", "serve"]
+__all__ = ["build_mcp", "call_tool", "serve"]
