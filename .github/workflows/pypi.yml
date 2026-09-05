@@ -1,0 +1,99 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and check wheels without uploading
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-publish
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install -e ".[dev]"
+
+      - name: Test
+        run: pytest
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/korn/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check tag matches pyproject version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(python3 -c "
+          import re
+          from pathlib import Path
+          match = re.search(r'^version = \"([^\"]+)\"', Path('pyproject.toml').read_text(), re.M)
+          print(match.group(1) if match else '')
+          ")"
+          if [ "$tag" != "$version" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match pyproject.toml version ${version}"
+            exit 1
+          fi
+
+      - name: Build korn and pykorn
+        run: bash scripts/build_pypi.sh
+
+      - name: Check distributions
+        run: |
+          python -m pip install twine
+          python -m twine check dist/korn/* dist/pykorn/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pypi-distributions
+          path: dist/
+
+      - name: Publish korn
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/korn
+          skip-existing: true
+          verbose: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Publish pykorn
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/pykorn
+          skip-existing: true
+          verbose: true
+          password: ${{ secrets.PYPI_API_TOKEN }}

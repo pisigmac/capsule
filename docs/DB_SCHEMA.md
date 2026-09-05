@@ -8,7 +8,8 @@ The database is disposable. Files are not.
 - `id` TEXT UNIQUE — UUID in API and frontmatter
 - `topic`, `content`, `freshness`, `source`, `confidence`
 - `created_at`, `updated_at`, `archived`
-- `file_path` UNIQUE, `file_hash`
+- `file_path` UNIQUE, `file_hash` (whole file), `content_hash` (normalized body)
+- `embedding`, `embedding_model`, `embedding_hash` — optional; empty unless `CAPSULE_EMBED=true`
 
 `tags`, `capsule_tags`, `capsule_relationships` (unique on from/to/type)
 

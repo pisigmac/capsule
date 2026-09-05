@@ -17,6 +17,8 @@ def db_session(tmp_path, monkeypatch):
     monkeypatch.setenv("CAPSULES_DIR", str(capsules_dir))
     monkeypatch.setenv("CAPSULE_WATCH", "false")
     monkeypatch.setenv("CAPSULE_API_TOKEN", "")
+    monkeypatch.setenv("CAPSULE_GIT_COMMIT", "false")
+    monkeypatch.setenv("CAPSULE_EMBED", "false")
     reset_engine()
     init_db()
     session = get_session_factory()()

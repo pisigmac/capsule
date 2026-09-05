@@ -1,9 +1,10 @@
-"""Minimal MCP server for Capsule. JSON-RPC 2.0 over stdio."""
+"""Capsule MCP server using the official Python SDK (stdio or Streamable HTTP)."""
 from __future__ import annotations
 
 import json
-import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+from mcp.server.fastmcp import FastMCP
 
 from ..search.engine import SearchEngine
 from ..shared.config import config
@@ -11,77 +12,15 @@ from ..shared.logging import setup_logging
 from ..shared.models import get_session_factory, init_db, reset_engine
 from ..store.store import CapsuleStore, StoreError
 
-PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "capsule"
-SERVER_VERSION = "0.3.0"
-
-TOOLS: List[Dict[str, Any]] = [
-    {
-        "name": "search_capsules",
-        "description": "Full-text search of atomic knowledge capsules. Filter by tags and confidence.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Search text"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "confidence": {"type": "string", "enum": ["high", "medium", "low", "hearsay"]},
-                "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
-            },
-        },
-    },
-    {
-        "name": "compose_context",
-        "description": "Build a token-budgeted context window from matching capsules.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "confidence_min": {"type": "string", "enum": ["high", "medium", "low", "hearsay"]},
-                "max_tokens": {"type": "integer", "minimum": 50, "maximum": 32000, "default": 4000},
-            },
-        },
-    },
-    {
-        "name": "get_capsule",
-        "description": "Fetch one capsule by UUID.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {"id": {"type": "string"}},
-            "required": ["id"],
-        },
-    },
-    {
-        "name": "create_capsule",
-        "description": "Create a new capsule file and index it.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "topic": {"type": "string"},
-                "content": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "confidence": {"type": "string", "enum": ["high", "medium", "low", "hearsay"]},
-                "source": {"type": "string"},
-            },
-            "required": ["topic", "content"],
-        },
-    },
-    {
-        "name": "list_stale",
-        "description": "List capsules not updated within N days.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {"days": {"type": "integer", "minimum": 1, "default": 90}},
-        },
-    },
-]
+SERVER_VERSION = "0.4.0"
 
 
 def _session():
     return get_session_factory()()
 
 
-def _call_tool(name: str, arguments: Dict[str, Any]) -> str:
+def call_tool(name: str, arguments: Dict[str, Any]) -> str:
     db = _session()
     try:
         store = CapsuleStore(db)
@@ -92,6 +31,7 @@ def _call_tool(name: str, arguments: Dict[str, Any]) -> str:
                 tags=arguments.get("tags"),
                 confidence=arguments.get("confidence"),
                 limit=int(arguments.get("limit") or 20),
+                mode=arguments.get("mode") or "fts",
             )
             return json.dumps(results, indent=2)
         if name == "compose_context":
@@ -100,6 +40,7 @@ def _call_tool(name: str, arguments: Dict[str, Any]) -> str:
                 tags=arguments.get("tags"),
                 confidence_min=arguments.get("confidence_min"),
                 max_tokens=int(arguments.get("max_tokens") or 4000),
+                mode=arguments.get("mode") or "fts",
             )
             return json.dumps(composed, indent=2)
         if name == "get_capsule":
@@ -125,54 +66,88 @@ def _call_tool(name: str, arguments: Dict[str, Any]) -> str:
         db.close()
 
 
-def _result(request_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": request_id, "result": payload}
+def build_mcp(host: str = "127.0.0.1", port: int = 9101) -> FastMCP:
+    server = FastMCP(
+        SERVER_NAME,
+        instructions="Atomic knowledge capsules. Search, compose, and write .capsule.md files.",
+        host=host,
+        port=port,
+    )
 
-
-def _error(request_id: Any, code: int, message: str) -> Dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
-
-
-def handle(message: Dict[str, Any]) -> Dict[str, Any] | None:
-    method = message.get("method")
-    request_id = message.get("id")
-    params = message.get("params") or {}
-
-    if method == "initialize":
-        return _result(
-            request_id,
+    @server.tool()
+    def search_capsules(
+        query: str = "",
+        tags: Optional[List[str]] = None,
+        confidence: Optional[str] = None,
+        limit: int = 20,
+        mode: str = "fts",
+    ) -> str:
+        """Full-text or semantic search of atomic knowledge capsules."""
+        return call_tool(
+            "search_capsules",
             {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+                "query": query,
+                "tags": tags,
+                "confidence": confidence,
+                "limit": limit,
+                "mode": mode,
             },
         )
-    if method in {"notifications/initialized", "initialized"}:
-        return None
-    if method == "ping":
-        return _result(request_id, {})
-    if method == "tools/list":
-        return _result(request_id, {"tools": TOOLS})
-    if method == "tools/call":
-        name = params.get("name")
-        arguments = params.get("arguments") or {}
-        try:
-            text = _call_tool(name, arguments)
-            return _result(
-                request_id,
-                {"content": [{"type": "text", "text": text}], "isError": False},
-            )
-        except Exception as exc:
-            return _result(
-                request_id,
-                {"content": [{"type": "text", "text": str(exc)}], "isError": True},
-            )
-    if request_id is None:
-        return None
-    return _error(request_id, -32601, f"Method not found: {method}")
+
+    @server.tool()
+    def compose_context(
+        query: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        confidence_min: Optional[str] = None,
+        max_tokens: int = 4000,
+        mode: str = "fts",
+    ) -> str:
+        """Build a token-budgeted context window from matching capsules."""
+        return call_tool(
+            "compose_context",
+            {
+                "query": query,
+                "tags": tags,
+                "confidence_min": confidence_min,
+                "max_tokens": max_tokens,
+                "mode": mode,
+            },
+        )
+
+    @server.tool()
+    def get_capsule(id: str) -> str:
+        """Fetch one capsule by UUID."""
+        return call_tool("get_capsule", {"id": id})
+
+    @server.tool()
+    def create_capsule(
+        topic: str,
+        content: str,
+        tags: Optional[List[str]] = None,
+        confidence: str = "medium",
+        source: Optional[str] = None,
+    ) -> str:
+        """Create a new capsule file and index it. Duplicate content returns the existing row."""
+        return call_tool(
+            "create_capsule",
+            {
+                "topic": topic,
+                "content": content,
+                "tags": tags or [],
+                "confidence": confidence,
+                "source": source,
+            },
+        )
+
+    @server.tool()
+    def list_stale(days: int = 90) -> str:
+        """List capsules not updated within N days."""
+        return call_tool("list_stale", {"days": days})
+
+    return server
 
 
-def serve() -> None:
+def serve(http: bool = False, host: str = "127.0.0.1", port: int = 9101) -> None:
     setup_logging(config.log_level)
     config.ensure_dirs()
     reset_engine()
@@ -184,18 +159,14 @@ def serve() -> None:
     finally:
         db.close()
 
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        response = handle(message)
-        if response is not None:
-            sys.stdout.write(json.dumps(response) + "\n")
-            sys.stdout.flush()
+    mcp = build_mcp(host=host, port=port)
+    if http:
+        if config.api_token:
+            # Streamable HTTP is local-first; bind to loopback unless the operator overrides host.
+            pass
+        mcp.run(transport="streamable-http")
+        return
+    mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

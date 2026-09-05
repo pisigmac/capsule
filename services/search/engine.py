@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from ..embed import embedder as embed_mod
+from ..shared.config import config
 from ..shared.models import Capsule, Tag
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
@@ -96,8 +98,36 @@ class SearchEngine:
         limit: int = 50,
         offset: int = 0,
         match_all_tags: bool = True,
+        mode: str = "fts",
     ) -> List[Dict[str, Any]]:
+        chosen = (mode or "fts").lower()
+        if chosen not in {"fts", "semantic", "hybrid"}:
+            chosen = "fts"
+        if chosen != "fts" and not config.embed_enabled:
+            chosen = "fts"
+
         tag_names = [t.lower().strip() for t in (tags or []) if t and t.strip()]
+        if chosen == "semantic":
+            return self._semantic_search(
+                query=query,
+                tag_names=tag_names,
+                confidence=confidence,
+                archived=archived,
+                limit=limit,
+                offset=offset,
+                match_all_tags=match_all_tags,
+            )
+        if chosen == "hybrid":
+            return self._hybrid_search(
+                query=query,
+                tag_names=tag_names,
+                confidence=confidence,
+                archived=archived,
+                limit=limit,
+                offset=offset,
+                match_all_tags=match_all_tags,
+            )
+
         dialect = self.db.get_bind().dialect.name
         fts = to_fts_query(query or "") if dialect == "sqlite" else (query or "").strip()[:200]
 
@@ -141,6 +171,88 @@ class SearchEngine:
         capsules = q.order_by(Capsule.updated_at.desc()).offset(offset).limit(limit).all()
         return [self._row_to_dict(c) for c in capsules]
 
+    def _semantic_search(
+        self,
+        query: str,
+        tag_names: List[str],
+        confidence: Optional[str],
+        archived: Optional[bool],
+        limit: int,
+        offset: int,
+        match_all_tags: bool,
+    ) -> List[Dict[str, Any]]:
+        query_vec = embed_mod.embed_text(query or "")
+        if query_vec is None:
+            return self.search(
+                query=query,
+                tags=tag_names,
+                confidence=confidence,
+                archived=archived,
+                limit=limit,
+                offset=offset,
+                match_all_tags=match_all_tags,
+                mode="fts",
+            )
+        q = self.db.query(Capsule).filter(Capsule.embedding.isnot(None))
+        if archived is not None:
+            q = q.filter(Capsule.archived == archived)
+        if confidence:
+            q = q.filter(Capsule.confidence == confidence)
+        capsules = q.limit(config.embed_candidate_limit).all()
+        scored: List[tuple[float, Capsule]] = []
+        for capsule in capsules:
+            if tag_names and not self._matches_tags(capsule, tag_names, match_all_tags):
+                continue
+            vector = embed_mod.decode_embedding(capsule.embedding)
+            if not vector:
+                continue
+            scored.append((embed_mod.cosine(query_vec, vector), capsule))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        sliced = scored[offset : offset + max(limit, 1)]
+        return [self._row_to_dict(capsule) for _, capsule in sliced]
+
+    def _hybrid_search(
+        self,
+        query: str,
+        tag_names: List[str],
+        confidence: Optional[str],
+        archived: Optional[bool],
+        limit: int,
+        offset: int,
+        match_all_tags: bool,
+    ) -> List[Dict[str, Any]]:
+        fetch = max((limit + offset) * 4, 40)
+        lexical = self.search(
+            query=query,
+            tags=tag_names,
+            confidence=confidence,
+            archived=archived,
+            limit=fetch,
+            offset=0,
+            match_all_tags=match_all_tags,
+            mode="fts",
+        )
+        semantic = self._semantic_search(
+            query=query,
+            tag_names=tag_names,
+            confidence=confidence,
+            archived=archived,
+            limit=fetch,
+            offset=0,
+            match_all_tags=match_all_tags,
+        )
+        scores: Dict[str, float] = {}
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for rank, row in enumerate(lexical):
+            scores[row["id"]] = scores.get(row["id"], 0.0) + 1.0 / (60 + rank + 1)
+            by_id[row["id"]] = row
+        for rank, row in enumerate(semantic):
+            scores[row["id"]] = scores.get(row["id"], 0.0) + 1.0 / (60 + rank + 1)
+            by_id[row["id"]] = row
+        ordered = sorted(scores, key=lambda cid: scores[cid], reverse=True)
+        picked = ordered[offset : offset + max(limit, 1)]
+        return [by_id[cid] for cid in picked]
+
     def _matches_tags(self, capsule: Capsule, tag_names: List[str], match_all: bool) -> bool:
         have = {t.name for t in capsule.tags}
         if match_all:
@@ -162,6 +274,7 @@ class SearchEngine:
         query: Optional[str] = None,
         confidence_min: Optional[str] = None,
         max_tokens: int = 4000,
+        mode: str = "fts",
     ) -> Dict[str, Any]:
         capsules = self.search(
             query=query or "",
@@ -169,6 +282,7 @@ class SearchEngine:
             archived=False,
             limit=200,
             offset=0,
+            mode=mode,
         )
 
         if confidence_min:

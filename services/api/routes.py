@@ -6,12 +6,13 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..search.engine import SearchEngine
 from ..shared.models import Capsule, CapsuleRelationship, Tag, get_db, utcnow
-from ..store.store import CapsuleStore, StoreError
+from ..store.store import CapsuleStore, DuplicateContentError, StoreError
 
 router = APIRouter()
 
@@ -46,6 +47,8 @@ class CapsuleResponse(BaseModel):
     updated_at: Optional[str]
     archived: bool
     file_path: Optional[str]
+    content_hash: Optional[str] = None
+    deduped: bool = False
 
 
 class CapsuleListResponse(BaseModel):
@@ -76,6 +79,7 @@ class SearchQuery(BaseModel):
     archived: Optional[bool] = False
     limit: int = Field(default=50, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
+    mode: str = Field(default="fts", pattern="^(fts|semantic|hybrid)$")
 
 
 class ComposeRequest(BaseModel):
@@ -83,6 +87,7 @@ class ComposeRequest(BaseModel):
     query: Optional[str] = None
     confidence_min: Optional[str] = None
     max_tokens: int = Field(default=4000, ge=50, le=128000)
+    mode: str = Field(default="fts", pattern="^(fts|semantic|hybrid)$")
 
 
 def get_store(db: Session = Depends(get_db)) -> CapsuleStore:
@@ -106,19 +111,32 @@ def require_uuid(value: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid capsule ID format") from exc
 
 
-@router.post("/capsules", response_model=CapsuleResponse, status_code=201)
+def raise_store_error(exc: StoreError) -> None:
+    if isinstance(exc, DuplicateContentError):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if "not found" in str(exc).lower():
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/capsules", response_model=CapsuleResponse)
 def create_capsule(data: CapsuleCreate, store: CapsuleStore = Depends(get_store)):
-    capsule = store.create(
-        topic=data.topic,
-        content=data.content,
-        tags=data.tags,
-        source=data.source,
-        confidence=data.confidence,
-        freshness=parse_freshness(data.freshness) or utcnow(),
-    )
+    try:
+        capsule = store.create(
+            topic=data.topic,
+            content=data.content,
+            tags=data.tags,
+            source=data.source,
+            confidence=data.confidence,
+            freshness=parse_freshness(data.freshness) or utcnow(),
+        )
+    except StoreError as exc:
+        raise_store_error(exc)
     store.db.commit()
     store.db.refresh(capsule)
-    return CapsuleResponse(**capsule.to_dict())
+    payload = CapsuleResponse(**capsule.to_dict())
+    status = 200 if payload.deduped else 201
+    return JSONResponse(status_code=status, content=payload.model_dump())
 
 
 @router.get("/capsules", response_model=CapsuleListResponse)
@@ -154,15 +172,18 @@ def get_capsule(capsule_id: str, store: CapsuleStore = Depends(get_store)):
 
 @router.patch("/capsules/{capsule_id}", response_model=CapsuleResponse)
 def update_capsule(capsule_id: str, data: CapsuleUpdate, store: CapsuleStore = Depends(get_store)):
-    capsule = store.update(
-        require_uuid(capsule_id),
-        topic=data.topic,
-        content=data.content,
-        tags=data.tags,
-        source=data.source,
-        confidence=data.confidence,
-        freshness=parse_freshness(data.freshness),
-    )
+    try:
+        capsule = store.update(
+            require_uuid(capsule_id),
+            topic=data.topic,
+            content=data.content,
+            tags=data.tags,
+            source=data.source,
+            confidence=data.confidence,
+            freshness=parse_freshness(data.freshness),
+        )
+    except StoreError as exc:
+        raise_store_error(exc)
     store.db.commit()
     store.db.refresh(capsule)
     return CapsuleResponse(**capsule.to_dict())
@@ -193,6 +214,7 @@ def search_capsules(data: SearchQuery, db: Session = Depends(get_db)):
         archived=data.archived,
         limit=data.limit,
         offset=data.offset,
+        mode=data.mode,
     )
     return [CapsuleResponse(**r) for r in results]
 
@@ -205,6 +227,7 @@ def compose_context(data: ComposeRequest, db: Session = Depends(get_db)):
         query=data.query,
         confidence_min=data.confidence_min,
         max_tokens=data.max_tokens,
+        mode=data.mode,
     )
 
 
