@@ -1,7 +1,7 @@
 ---
-created: 2026-09-01T05:23:04.169325+00:00
-id: 8fb88de5f681
-modified: 2026-09-01T05:23:04.169325+00:00
+created: 2026-09-05T13:04:21.843974+00:00
+id: ddefbcf1128a
+modified: 2026-09-05T13:04:21.843974+00:00
 source: daemon
 status: active
 tags:
@@ -31,6 +31,9 @@ type: structure
     services/store/
       __init__.py
       store.py
+    services/embed/
+      __init__.py
+      embedder.py
     services/api/
       __init__.py
       dependencies.py
@@ -43,6 +46,9 @@ type: structure
       __init__.py
       __main__.py
       watcher.py
+    services/gitcommit/
+      __init__.py
+      committer.py
     services/shared/
       __init__.py
       config.py
@@ -93,6 +99,7 @@ type: structure
     TESTS.md
   scripts/
     build_pypi.sh
+    e2e_curl.sh
     setup.sh
     start_all.sh
     stop_all.sh
@@ -108,6 +115,7 @@ type: structure
     conftest.py
     test_api.py
     test_e2e.py
+    test_future.py
     test_parser.py
     test_postgres.py
     test_search.py
@@ -136,6 +144,7 @@ type: structure
     capsules/shared/
   commits/
     2026-09-01.md
+    2026-09-05.md
   meetings/
   projects/
     README.md
