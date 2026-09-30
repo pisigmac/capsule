@@ -100,7 +100,7 @@ stream = load_bloat_simulation_stream() # 50-step agent memory trajectory
 pip install kapsule
 ```
 
-*(Also available as `pip install korn` or `pip install pykorn`)*
+*(CLI binary works interchangeably as `capsule`, `kapsule`, or `caps`)*
 
 ### 2. Initialize a Knowledge Vault
 

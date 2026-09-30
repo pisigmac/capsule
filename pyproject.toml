@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kapsule"
-version = "0.4.0"
-description = "Atomic knowledge management for AI agents (Capsule)"
+version = "0.5.0"
+description = "Atomic, file-first long-term memory with bounded drift for autonomous AI agents (Capsule)"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -19,6 +19,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Database :: Database Engines/Servers",
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -32,6 +34,7 @@ dependencies = [
     "pyyaml>=6.0.0",
     "psycopg[binary]>=3.1.0",
     "mcp>=1.8.0",
+    "tiktoken>=0.7.0",
 ]
 
 [project.optional-dependencies]
@@ -45,20 +48,32 @@ dev = [
 embed = [
     "sentence-transformers>=3.0.0",
 ]
+eval = [
+    "scipy>=1.11.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.8.0",
+    "google-genai>=1.0.0",
+]
 
 [project.scripts]
-capsule = "cli.main:cli"
-kapsule = "cli.main:cli"
-korn = "cli.main:cli"
-pykorn = "cli.main:cli"
+capsule = "capsule_cli.main:cli"
+kapsule = "capsule_cli.main:cli"
+caps = "capsule_cli.main:cli"
+korn = "capsule_cli.main:cli"
+pykorn = "capsule_cli.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/pisigmac/capsule"
 Repository = "https://github.com/pisigmac/capsule"
+Documentation = "https://github.com/pisigmac/capsule/blob/main/docs/BENCHMARKS.md"
+Changelog = "https://github.com/pisigmac/capsule/releases"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["services*", "cli*"]
+include = ["services*", "capsule_cli*", "evals*"]
+
+[tool.setuptools.package-data]
+"evals.data" = ["*.json", "*.md"]
 
 [tool.black]
 line-length = 100
