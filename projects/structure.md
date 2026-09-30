@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T09:41:11.130268+00:00
-id: 444b4b6786b2
-modified: 2026-09-30T09:41:11.130268+00:00
+created: 2026-09-30T10:42:20.188831+00:00
+id: cf26f97f0498
+modified: 2026-09-30T10:42:20.188831+00:00
 source: daemon
 status: active
 tags:
@@ -108,6 +108,7 @@ type: structure
     TECH-STACK.md
     TESTS.md
   evals/
+    __init__.py
     ablation_study.py
     benchmark_hotpotqa_100.py
     benchmark_hotpotqa_1000.py
@@ -118,6 +119,7 @@ type: structure
     sim_agent_bloat.py
     evals/data/
       README.md
+      __init__.py
       atomic_capsules.json
       benchmark_queries.json
       bloat_simulation_stream.json
@@ -149,13 +151,6 @@ type: structure
     setup.sh
     start_all.sh
     stop_all.sh
-  korn.egg-info/
-    PKG-INFO
-    SOURCES.txt
-    dependency_links.txt
-    entry_points.txt
-    requires.txt
-    top_level.txt
   tests/
     __init__.py
     conftest.py
@@ -171,13 +166,6 @@ type: structure
     meeting.md
     person.md
     project.md
-  pykorn.egg-info/
-    PKG-INFO
-    SOURCES.txt
-    dependency_links.txt
-    entry_points.txt
-    requires.txt
-    top_level.txt
   sessions/
   decisions/
   capsules/
@@ -202,6 +190,10 @@ type: structure
     2026-09-05.md
     2026-09-29.md
     2026-09-30.md
+  capsule_cli/
+    __init__.py
+    __main__.py
+    main.py
   meetings/
   projects/
     README.md

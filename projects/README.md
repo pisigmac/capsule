@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T09:41:11.117587+00:00
-id: 4d687b94f7f5
-modified: 2026-09-30T09:41:11.117587+00:00
+created: 2026-09-30T10:42:20.179842+00:00
+id: ebac06efd9c8
+modified: 2026-09-30T10:42:20.179842+00:00
 source: daemon
 status: active
 tags:
@@ -123,7 +123,7 @@ stream = load_bloat_simulation_stream() # 50-step agent memory trajectory
 pip install kapsule
 ```
 
-*(Also available as `pip install korn` or `pip install pykorn`)*
+*(CLI binary works interchangeably as `capsule`, `kapsule`, or `caps`)*
 
 ### 2. Initialize a Knowledge Vault
 
