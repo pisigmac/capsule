@@ -371,13 +371,84 @@ def git_cmd(action):
     )
 
 
-@cli.command("mcp")
+@cli.group("mcp", invoke_without_command=True)
 @click.option("--http", is_flag=True, help="Streamable HTTP instead of stdio")
 @click.option("--host", default="127.0.0.1")
 @click.option("--port", default=9101, type=int)
-def mcp_cmd(http, host, port):
-    """Run the Capsule MCP server (official SDK, stdio or HTTP)."""
-    serve_mcp(http=http, host=host, port=port)
+@click.pass_context
+def mcp_cmd(ctx, http, host, port):
+    """Run or configure the Capsule MCP server (official SDK, stdio or HTTP)."""
+    if ctx.invoked_subcommand is None:
+        serve_mcp(http=http, host=host, port=port)
+
+
+@mcp_cmd.command("install")
+@click.option("--claude", is_flag=True, help="Configure Claude Desktop")
+@click.option("--cursor", is_flag=True, help="Configure Cursor IDE")
+@click.option("--windsurf", is_flag=True, help="Configure Windsurf")
+@click.option("--all", "all_clients", is_flag=True, help="Configure all detected clients")
+@click.option("--dry-run", is_flag=True, help="Preview configuration changes without writing")
+@click.option("--remove", is_flag=True, help="Remove Capsule from client configurations")
+@click.option("--capsules-dir", type=click.Path(), default=None, help="Custom capsules directory path")
+@click.option("--name", default="capsule", help="Server name in config (default: capsule)")
+def mcp_install_cmd(claude, cursor, windsurf, all_clients, dry_run, remove, capsules_dir, name):
+    """Auto-install Capsule MCP server into Claude Desktop, Cursor, and Windsurf."""
+    from .installer.mcp_installer import McpInstaller, detect_installed_clients
+    from .installer.targets import get_system_targets
+
+    installer = McpInstaller()
+    all_targets = get_system_targets()
+    target_map = {t.client_id: t for t in all_targets}
+
+    selected = []
+    if claude and "claude" in target_map:
+        selected.append(target_map["claude"])
+    if cursor and "cursor" in target_map:
+        selected.append(target_map["cursor"])
+    if windsurf and "windsurf" in target_map:
+        selected.append(target_map["windsurf"])
+
+    if not selected:
+        installed = detect_installed_clients(all_targets)
+        if not installed:
+            console.print("[yellow]No supported AI clients (Claude Desktop, Cursor, Windsurf) detected on this system.[/yellow]")
+            console.print("[dim]Use --claude, --cursor, or --windsurf to force configuration for a specific client.[/dim]")
+            return
+        selected = installed
+
+    caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
+
+    mode_label = "DRY RUN (Preview Only)" if dry_run else ("Uninstall" if remove else "Install")
+    console.print(
+        Panel(
+            f"[bold]Capsule MCP Installer[/bold]\n"
+            f"Server Name: [cyan]{name}[/cyan]\n"
+            f"Capsules Dir: [dim]{caps_path}[/dim]\n"
+            f"Mode: [yellow]{mode_label}[/yellow]",
+            border_style="blue",
+        )
+    )
+
+    for target in selected:
+        if remove:
+            res = installer.remove_target(target, server_name=name, dry_run=dry_run)
+        else:
+            res = installer.install_target(target, capsules_dir=caps_path, server_name=name, dry_run=dry_run)
+
+        if res.success:
+            if dry_run and res.diff:
+                console.print(f"[bold green]Target: {target.name}[/bold green] ([dim]{target.config_path}[/dim]):")
+                syntax = Syntax(res.diff, "json", theme="monokai", line_numbers=True)
+                console.print(Panel(syntax, title=f"Dry Run Diff: {target.name}", border_style="yellow"))
+            else:
+                console.print(f"[green]✓[/green] {res.message} ([dim]{target.config_path}[/dim])")
+                if res.backup_path:
+                    console.print(f"   [dim]Backup created: {res.backup_path}[/dim]")
+        else:
+            console.print(f"[red]✗ Failed {target.name}:[/red] {res.message}")
+
+    if not dry_run and not remove:
+        console.print("\n[bold cyan]Setup complete![/bold cyan] Restart your AI client to start using Capsule tools.")
 
 
 if __name__ == "__main__":
