@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T16:58:25.412593+00:00
-id: 1c52f4a54a73
-modified: 2026-09-30T16:58:25.412593+00:00
+created: 2026-09-30T18:00:36.125902+00:00
+id: 0cc24156114f
+modified: 2026-09-30T18:00:36.125902+00:00
 source: daemon
 status: active
 tags:
@@ -161,6 +161,12 @@ type: structure
       memory_bloat_report.json
       memory_bloat_simulation.png
       multi_model_comparison_report.json
+  extensions/
+    extensions/vscode-capsule/
+      README.md
+      package-lock.json
+      package.json
+      tsconfig.json
   scripts/
     build_pypi.sh
     e2e_curl.sh
@@ -192,6 +198,7 @@ type: structure
     test_search.py
     test_sync.py
     test_tui.py
+    ... (1 more)
   templates/
     meeting.md
     person.md
@@ -207,11 +214,4 @@ type: structure
     search-uses-integer-fts5-rowids-0d4e18aa.capsule.md
     ui-write-path-creates-a-markdown-file-8fec4efd.capsule.md
     capsules/archived/
-    capsules/shared/
-  kapsule.egg-info/
-    PKG-INFO
-    SOURCES.txt
-    dependency_links.txt
-    entry_points.txt
-    requires.txt
 ```
