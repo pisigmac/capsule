@@ -650,5 +650,130 @@ def mcp_install_cmd(claude, cursor, windsurf, all_clients, dry_run, remove, caps
         console.print("\n[bold cyan]Setup complete![/bold cyan] Restart your AI client to start using Capsule tools.")
 
 
+@cli.command()
+@click.argument("pack")
+@click.option("--dir", "capsules_dir", default=None, type=click.Path(), help="Target capsules directory (defaults to configured caps directory)")
+@click.option("--dry-run", is_flag=True, help="Preview capsules in pack without writing to disk")
+@click.option("--force", "-f", is_flag=True, help="Overwrite existing capsule files")
+def pull(pack: str, capsules_dir: Optional[str], dry_run: bool, force: bool):
+    """Pull a verified knowledge pack into Capsule memory."""
+    from services.registry.client import RegistryClient, RegistryError, ZipSlipError
+
+    target_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
+    client = RegistryClient()
+
+    with session() as s:
+        try:
+            console.print(f"[bold cyan]Fetching knowledge pack[/bold cyan] [yellow]'{pack}'[/yellow] ...")
+            res = client.pull(pack, target_dir=target_path, dry_run=dry_run, force=force, db_session=s)
+        except (RegistryError, ZipSlipError, ValueError, Exception) as e:
+            console.print(f"[red]Error pulling pack:[/red] {e}")
+            sys.exit(1)
+
+    mode_text = " [yellow](DRY RUN — Preview Only)[/yellow]" if dry_run else ""
+    manifest = res.manifest
+    author_text = f" (Author: [cyan]@{manifest.author}[/cyan])" if manifest else ""
+    console.print(
+        Panel(
+            f"[bold green]Knowledge Pack:[/bold green] [bold]{res.pack_name}[/bold]{author_text}{mode_text}\n"
+            f"[dim]Target Directory: {target_path}[/dim]\n"
+            f"Installed: [bold green]{res.total_installed}[/bold green] | Skipped (Existing): [yellow]{res.total_skipped}[/yellow]",
+            border_style="green" if not dry_run else "yellow",
+        )
+    )
+
+    if res.installed:
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Filename", style="dim")
+        table.add_column("Topic", style="bold")
+        table.add_column("Confidence", style="cyan")
+        table.add_column("Tags", style="green")
+
+        for item in res.installed:
+            tags_str = ", ".join(item.tags)
+            table.add_row(item.filename, item.topic, item.confidence, tags_str)
+
+        console.print(table)
+
+    if not dry_run:
+        console.print(f"[green]✓[/green] Successfully merged [bold]{res.total_installed}[/bold] capsules into [dim]{target_path}[/dim].")
+        if res.reconciled:
+            console.print("[dim]Index reconciled and updated.[/dim]")
+
+
+@cli.group()
+def pack():
+    """Manage and discover Capsule Knowledge Packs."""
+    pass
+
+
+@pack.command("list")
+@click.option("--search", "-s", default=None, help="Filter packs by keyword or tag")
+def pack_list(search: Optional[str]):
+    """List available knowledge packs in the registry."""
+    from services.registry.client import RegistryClient
+
+    client = RegistryClient()
+    packs = client.list_packs(query=search)
+
+    if not packs:
+        msg = f"No knowledge packs found matching '{search}'." if search else "No knowledge packs available."
+        console.print(f"[yellow]{msg}[/yellow]")
+        return
+
+    table = Table(title="Capsule Knowledge Packs Registry", show_header=True, header_style="bold blue")
+    table.add_column("Pack Name", style="bold cyan", no_wrap=True)
+    table.add_column("Version", style="dim")
+    table.add_column("Author", style="dim")
+    table.add_column("Caps", justify="right")
+    table.add_column("Tags", style="green")
+    table.add_column("Description")
+
+    for p in packs:
+        tags_str = ", ".join(p.tags[:4])
+        if len(p.tags) > 4:
+            tags_str += f" (+{len(p.tags)-4})"
+        table.add_row(p.name, p.version, p.author, str(p.caps_count), tags_str, p.description)
+
+    console.print(table)
+    console.print("\n[dim]To install a pack, run:[/dim] [bold cyan]caps pull <pack-name>[/bold cyan]")
+
+
+@pack.command("create")
+@click.argument("source_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--name", "-n", required=True, help="Pack name (e.g. 'python-performance')")
+@click.option("--version", "-v", default="1.0.0", help="Pack semantic version")
+@click.option("--author", "-a", default="Community", help="Pack author")
+@click.option("--desc", "-d", default="", help="Short description of pack")
+@click.option("--tag", "-t", multiple=True, help="Tags classifying this pack")
+@click.option("--output", "-o", default=None, type=click.Path(), help="Output .zip archive path")
+def pack_create(source_dir: str, name: str, version: str, author: str, desc: str, tag: tuple[str, ...], output: Optional[str]):
+    """Export local capsules into a distributable knowledge pack archive."""
+    from services.registry.publisher import PackPublisher
+
+    try:
+        out_path, manifest = PackPublisher.create_pack(
+            source_dir=Path(source_dir),
+            name=name,
+            version=version,
+            description=desc,
+            author=author,
+            tags=list(tag) if tag else None,
+            output_path=Path(output) if output else None,
+        )
+        console.print(f"[bold green]✓ Created Knowledge Pack:[/bold green] [cyan]{out_path}[/cyan]")
+        console.print(f"  Name: [bold]{manifest.name}[/bold] (v{manifest.version})")
+        console.print(f"  Capsules: [bold]{manifest.caps_count}[/bold]")
+        console.print(f"  Tags: [green]{', '.join(manifest.tags)}[/green]")
+        console.print(f"  SHA-256: [dim]{manifest.sha256}[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error creating pack:[/red] {e}")
+        sys.exit(1)
+
+
+# Register registry as an alias for pack
+cli.add_command(pack, name="registry")
+
+
 if __name__ == "__main__":
     cli()
