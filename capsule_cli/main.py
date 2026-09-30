@@ -71,7 +71,7 @@ def new(topic, tag, source, confidence, editor):
                 "Write your capsule content here. Be specific. One fact per capsule.\n"
             )
         )
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".capsule.md", delete=False) as handle:
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".caps.md", delete=False) as handle:
             handle.write(template)
             tmp_path = handle.name
         editor_cmd = os.getenv("EDITOR", "nano")

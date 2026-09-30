@@ -36,7 +36,7 @@ class TestContentDedup:
         db_session.commit()
         assert second.id == first.id
         assert second.deduped is True
-        files = list(Path(store.capsules_dir).glob("*.capsule.md"))
+        files = [p for p in Path(store.capsules_dir).iterdir() if p.name.endswith((".caps.md", ".cap.md", ".capsule.md"))]
         assert len(files) == 1
 
     def test_duplicate_merges_tags(self, db_session):

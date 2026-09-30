@@ -32,7 +32,13 @@ class CapsuleEventHandler(FileSystemEventHandler):
     def _is_capsule_file(self, path: str) -> bool:
         if path.endswith(".tmp"):
             return False
-        return path.endswith(".capsule.md") or path.endswith(".capsule")
+        return (
+            path.endswith(".caps.md")
+            or path.endswith(".cap.md")
+            or path.endswith(".capsule.md")
+            or path.endswith(".capsule")
+            or path.endswith(".cap")
+        )
 
     def _changed(self, path: str) -> bool:
         try:

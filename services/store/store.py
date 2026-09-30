@@ -74,7 +74,7 @@ class CapsuleStore:
         return resolved
 
     def _new_path(self, topic: str, capsule_id: str) -> Path:
-        name = f"{slugify(topic)}-{capsule_id[:8]}.capsule.md"
+        name = f"{slugify(topic)}-{capsule_id[:8]}.caps.md"
         return self._safe_path(self.capsules_dir / name)
 
     def _atomic_write(self, path: Path, content: str) -> None:
@@ -359,9 +359,17 @@ class CapsuleStore:
         seen: set[str] = set()
         count = 0
         if self.capsules_dir.exists():
-            for file_path in sorted(self.capsules_dir.rglob("*.capsule.md")):
+            candidate_files = []
+            for pattern in ("*.caps.md", "*.cap.md", "*.capsule.md", "*.capsule", "*.cap"):
+                candidate_files.extend(self.capsules_dir.rglob(pattern))
+            seen_fps: set[str] = set()
+            for file_path in sorted(candidate_files):
                 if file_path.name.endswith(".tmp"):
                     continue
+                resolved_fp = str(file_path.resolve())
+                if resolved_fp in seen_fps:
+                    continue
+                seen_fps.add(resolved_fp)
                 try:
                     capsule = self.upsert_from_file(file_path)
                     seen.add(str(Path(capsule.file_path).resolve()))
