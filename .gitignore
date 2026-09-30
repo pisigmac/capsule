@@ -28,10 +28,11 @@ wheels/
 .env.local
 
 # Docker
-data/
+/data/
 capsule-data/
 *.sqlite3
 *.db
+!evals/data/
 
 # Frontend (Node)
 frontend/node_modules/

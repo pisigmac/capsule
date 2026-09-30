@@ -22,6 +22,12 @@ def estimate_tokens(value: str) -> int:
 
 
 def to_fts_query(raw: str) -> Optional[str]:
+    if not raw or not raw.strip():
+        return None
+    # If the caller provides an explicit boolean query with OR / AND, preserve it
+    trimmed = raw.strip()
+    if " OR " in trimmed or " AND " in trimmed:
+        return trimmed
     tokens = _TOKEN_RE.findall(raw)[:32]
     if not tokens:
         return None

@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T04:48:14.451848+00:00
-id: 5584723050f4
-modified: 2026-09-30T04:48:14.451848+00:00
+created: 2026-09-30T06:58:28.316392+00:00
+id: 8ac96457d657
+modified: 2026-09-30T06:58:28.316392+00:00
 source: daemon
 status: active
 tags:
@@ -23,6 +23,7 @@ type: structure
   debugging.md
   docker-compose.yml
   install.sh
+  next_strategy.md
   pyproject.toml
   start_all.sh
   stop_all.sh
@@ -79,6 +80,14 @@ type: structure
       api.ts
       index.css
       main.tsx
+  paper/
+    README.md
+    capsule_paper.zip
+    paper.md
+    paper.tex
+    references.bib
+    paper/figures/
+      memory_bloat_simulation.png
   cli/
     __init__.py
     main.py
@@ -97,6 +106,20 @@ type: structure
     SECURITY.md
     TECH-STACK.md
     TESTS.md
+  evals/
+    ablation_study.py
+    benchmark_token_efficiency.py
+    eval_llm_accuracy.py
+    sim_agent_bloat.py
+    evals/results/
+      ABLATION.md
+      BENCHMARK.md
+      LLM_ACCURACY.md
+      ablation_results.json
+      benchmark_report.json
+      llm_accuracy_report.json
+      memory_bloat_report.json
+      memory_bloat_simulation.png
   scripts/
     build_pypi.sh
     e2e_curl.sh
@@ -114,6 +137,7 @@ type: structure
     __init__.py
     conftest.py
     test_api.py
+    test_benchmark.py
     test_e2e.py
     test_future.py
     test_parser.py

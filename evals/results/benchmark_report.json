@@ -1,12 +1,12 @@
 {
   "total_queries": 5,
   "naive_avg_tokens": 379.8,
-  "capsule_avg_tokens": 239.6,
-  "token_savings_pct": 36.9,
+  "capsule_avg_tokens": 239.0,
+  "token_savings_pct": 37.1,
   "naive_avg_recall": 93.3,
   "capsule_avg_recall": 100.0,
   "naive_avg_density": 34.1,
-  "capsule_avg_density": 71.4,
+  "capsule_avg_density": 71.6,
   "naive_avg_redundancy": 0.0,
   "capsule_avg_redundancy": 0.0,
   "queries": [
@@ -20,12 +20,12 @@
         "density": 40.54054054054054
       },
       "capsule": {
-        "tokens": 167,
+        "tokens": 174,
         "recall": 100.0,
         "redundancy_rate": 0.0,
-        "density": 91.01796407185628
+        "density": 91.37931034482759
       },
-      "token_savings_pct": 49.8
+      "token_savings_pct": 47.7
     },
     {
       "query_id": "Q2",
@@ -37,12 +37,12 @@
         "density": 57.21649484536082
       },
       "capsule": {
-        "tokens": 270,
+        "tokens": 267,
         "recall": 100.0,
         "redundancy_rate": 0.0,
-        "density": 91.85185185185185
+        "density": 91.76029962546816
       },
-      "token_savings_pct": 30.4
+      "token_savings_pct": 31.2
     },
     {
       "query_id": "Q3",
@@ -54,12 +54,12 @@
         "density": 24.277456647398843
       },
       "capsule": {
-        "tokens": 182,
+        "tokens": 180,
         "recall": 100.0,
         "redundancy_rate": 0.0,
-        "density": 51.098901098901095
+        "density": 51.66666666666667
       },
-      "token_savings_pct": 47.4
+      "token_savings_pct": 48.0
     },
     {
       "query_id": "Q4",
@@ -71,12 +71,12 @@
         "density": 36.95150115473441
       },
       "capsule": {
-        "tokens": 216,
+        "tokens": 214,
         "recall": 100.0,
         "redundancy_rate": 0.0,
-        "density": 98.61111111111111
+        "density": 98.5981308411215
       },
-      "token_savings_pct": 50.1
+      "token_savings_pct": 50.6
     },
     {
       "query_id": "Q5",
@@ -88,12 +88,12 @@
         "density": 11.278195488721805
       },
       "capsule": {
-        "tokens": 363,
+        "tokens": 360,
         "recall": 100.0,
         "redundancy_rate": 0.0,
-        "density": 24.517906336088156
+        "density": 24.72222222222222
       },
-      "token_savings_pct": 9.0
+      "token_savings_pct": 9.8
     }
   ]
 }

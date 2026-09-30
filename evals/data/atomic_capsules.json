@@ -1,0 +1,154 @@
+[
+  {
+    "id": "cap-auth-bypass",
+    "topic": "Staging Auth Bypass via Header",
+    "content": "Staging skips JWT verification when `X-Debug-Override` header is present. This is intentional for mobile E2E CI tests. Rejected with HTTP 400 in production.",
+    "tags": [
+      "auth",
+      "staging",
+      "ci",
+      "jwt"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_auth_incident",
+    "tokens": 37,
+    "hash": "35b4c82e101afd450e38f8ad374d8ce336f051e36577f2a1b0333a952a9983bc"
+  },
+  {
+    "id": "cap-auth-dep",
+    "topic": "Mobile CI Dependency on Auth Bypass",
+    "content": "Mobile CI automation pipelines (Android/iOS integration suites) depend directly on the `X-Debug-Override` auth bypass. Do not remove or alter without mobile infra coordination.",
+    "tags": [
+      "ci",
+      "mobile",
+      "auth",
+      "testing"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_auth_incident",
+    "tokens": 35,
+    "hash": "4d6ed49fb68ef1c926e70875e5d66e45faba0ead906026733e617b5f8cfe6cb5"
+  },
+  {
+    "id": "cap-sqlite-fts",
+    "topic": "SQLite FTS5 Search Index Architecture",
+    "content": "Local Capsule uses SQLite with FTS5 porter stemmer. The `capsules` table joins virtual table `capsule_search` on internal integer `rowid` for sub-millisecond lookups while exposing public UUIDs.",
+    "tags": [
+      "database",
+      "sqlite",
+      "fts5",
+      "search"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_database_arch",
+    "tokens": 46,
+    "hash": "1afd38585a83c4de0de8f400efe1d2bb8cfb77ffb3c3b06131837dab22c5efdc"
+  },
+  {
+    "id": "cap-postgres-gin",
+    "topic": "PostgreSQL GIN tsvector Search Index",
+    "content": "Production Capsule uses PostgreSQL 16 `tsvector` generated columns with GIN indexes to support concurrent multi-worker search access with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "gin",
+      "tsvector",
+      "search"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_database_arch",
+    "tokens": 30,
+    "hash": "2adaec07e3023ef54bea848b6c677928f7a3fe340cb8a1fe09894223cfee0125"
+  },
+  {
+    "id": "cap-index-rebuild",
+    "topic": "Zero-Loss Index Rebuilding",
+    "content": "SQLite and PostgreSQL are derived search indexes. If the database is deleted, Capsule reconciles and fully rebuilds all tables and tags from `.capsule.md` files on startup.",
+    "tags": [
+      "database",
+      "recovery",
+      "sync",
+      "architecture"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_database_arch",
+    "tokens": 36,
+    "hash": "b3b1c82e7f0324328950ccfa196c680b6cb84ee2bb7ec61e25b8777c298b4029"
+  },
+  {
+    "id": "cap-content-dedup",
+    "topic": "SHA-256 Content-Hash Deduplication",
+    "content": "Capsule normalizes whitespace and calculates SHA-256 content hashes on create. If duplicate content is posted, Capsule merges tags and returns HTTP 200 with `deduped: true` rather than writing a duplicate file.",
+    "tags": [
+      "dedup",
+      "hashing",
+      "store",
+      "api"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_dedup_protocol",
+    "tokens": 45,
+    "hash": "b3806b75297c79ebfc83e936658500a7328b0b80780fb206eed051518991b09a"
+  },
+  {
+    "id": "cap-dedup-conflict",
+    "topic": "Update Conflict Prevention on Deduplication",
+    "content": "Updating a capsule via `PATCH /capsules/{id}` to match the content of another existing capsule raises HTTP 409 Conflict to prevent duplicate facts under differing IDs.",
+    "tags": [
+      "dedup",
+      "api",
+      "conflicts",
+      "validation"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_dedup_protocol",
+    "tokens": 33,
+    "hash": "7f9555960c69ca05601b3d29dc63b7ac5701cef873238b0753e0a06092e80f10"
+  },
+  {
+    "id": "cap-mcp-modes",
+    "topic": "MCP Server stdio and HTTP Modes",
+    "content": "Capsule's official FastMCP server runs in two modes: default `stdio` for local AI assistants (spawned via `capsule mcp`), and `Streamable HTTP` on port 9101 (`capsule mcp --http --port 9101`).",
+    "tags": [
+      "mcp",
+      "server",
+      "http",
+      "stdio",
+      "configuration"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_mcp_interface",
+    "tokens": 56,
+    "hash": "1c4e2f0e6db4ecf867e06b1cb2d430cc6b9843038882b9beb8dd062355535988"
+  },
+  {
+    "id": "cap-mcp-tools",
+    "topic": "Exposed MCP Agent Tools",
+    "content": "The MCP server exposes 5 tools: `search_capsules` (query index), `compose_context` (token-budgeted markdown prompt), `get_capsule` (fetch by ID), `create_capsule` (persist fact), and `list_stale` (detect outdated knowledge).",
+    "tags": [
+      "mcp",
+      "tools",
+      "agent",
+      "api"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_mcp_interface",
+    "tokens": 58,
+    "hash": "53bfcaa6fb0868ef4b41173ed7ffefbbb0b5b0cce477e09bf0923fbc89acdb23"
+  },
+  {
+    "id": "cap-sync-watchdog",
+    "topic": "Filesystem Watchdog Sync Cycle",
+    "content": "The sync service uses `watchdog` with 250ms debouncing to monitor `CAPSULES_DIR`. File edits or deletions in external editors/git automatically update or remove rows in the derived SQLite/Postgres index.",
+    "tags": [
+      "sync",
+      "watchdog",
+      "filesystem",
+      "watcher"
+    ],
+    "confidence": "high",
+    "source_doc_id": "doc_sync_watcher",
+    "tokens": 46,
+    "hash": "b7f75147b59d87ee538ea997625ac64d2f88a2f3279ae17c0d8043ef696bcbbf"
+  }
+]
