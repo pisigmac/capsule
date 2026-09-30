@@ -23,15 +23,21 @@ class CapsuleEventHandler(FileSystemEventHandler):
         parser: CapsuleParser,
         on_change: Optional[Callable[[str], None]] = None,
         on_delete: Optional[Callable[[str], None]] = None,
+        include_markdown: bool = False,
     ) -> None:
         self.parser = parser
         self.on_change = on_change
         self.on_delete = on_delete
+        self.include_markdown = include_markdown
         self._file_hashes: Dict[str, str] = {}
 
     def _is_capsule_file(self, path: str) -> bool:
         if path.endswith(".tmp"):
             return False
+        if "/obsidian" in path or "/.obsidian" in path:
+            return path.endswith(".md")
+        if self.include_markdown and path.endswith(".md"):
+            return True
         return (
             path.endswith(".caps.md")
             or path.endswith(".cap.md")
@@ -39,6 +45,7 @@ class CapsuleEventHandler(FileSystemEventHandler):
             or path.endswith(".capsule")
             or path.endswith(".cap")
         )
+
 
     def _changed(self, path: str) -> bool:
         try:
@@ -84,9 +91,15 @@ class CapsuleEventHandler(FileSystemEventHandler):
 class CapsuleSyncService:
     """Watch capsule directories and upsert them into the index."""
 
-    def __init__(self, watch_dirs: list, parser: Optional[CapsuleParser] = None):
+    def __init__(
+        self,
+        watch_dirs: list,
+        parser: Optional[CapsuleParser] = None,
+        include_markdown: bool = False,
+    ) -> None:
         self.watch_dirs = [Path(d) for d in watch_dirs]
         self.parser = parser or CapsuleParser()
+        self.include_markdown = include_markdown
         self.observer: Optional[Observer] = None
 
     def _session_store(self) -> CapsuleStore:
@@ -138,6 +151,7 @@ class CapsuleSyncService:
             parser=self.parser,
             on_change=self._on_change,
             on_delete=self._on_delete,
+            include_markdown=self.include_markdown,
         )
         scheduled = 0
         for watch_dir in self.watch_dirs:

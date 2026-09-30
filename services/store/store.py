@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 import uuid
 from pathlib import Path
@@ -69,9 +70,27 @@ class CapsuleStore:
         root = self.capsules_dir.resolve()
         try:
             resolved.relative_to(root)
-        except ValueError as exc:
-            raise StoreError("Capsule path is outside CAPSULES_DIR") from exc
-        return resolved
+            return resolved
+        except ValueError:
+            pass
+
+        # Allow files located in directories symlinked under capsules_dir (e.g. linked Obsidian vaults)
+        if self.capsules_dir.exists():
+            try:
+                for item in self.capsules_dir.iterdir():
+                    if item.is_symlink():
+                        try:
+                            sym_target = item.resolve()
+                            resolved.relative_to(sym_target)
+                            return resolved
+                        except (ValueError, OSError):
+                            pass
+            except OSError:
+                pass
+
+        raise StoreError("Capsule path is outside CAPSULES_DIR")
+
+
 
     def _new_path(self, topic: str, capsule_id: str) -> Path:
         name = f"{slugify(topic)}-{capsule_id[:8]}.caps.md"
@@ -360,8 +379,16 @@ class CapsuleStore:
         count = 0
         if self.capsules_dir.exists():
             candidate_files = []
-            for pattern in ("*.caps.md", "*.cap.md", "*.capsule.md", "*.capsule", "*.cap"):
-                candidate_files.extend(self.capsules_dir.rglob(pattern))
+            patterns = (".caps.md", ".cap.md", ".capsule.md", ".capsule", ".cap")
+            for root_dir, dirs, files in os.walk(str(self.capsules_dir), followlinks=True):
+                dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "dist", "build")]
+                for f in files:
+                    if f.endswith(".tmp"):
+                        continue
+                    is_cap = any(f.endswith(p) for p in patterns)
+                    is_obsidian_md = ("/obsidian" in root_dir or "obsidian" in Path(root_dir).parts) and f.endswith(".md")
+                    if is_cap or is_obsidian_md:
+                        candidate_files.append(Path(root_dir) / f)
             seen_fps: set[str] = set()
             for file_path in sorted(candidate_files):
                 if file_path.name.endswith(".tmp"):
@@ -385,6 +412,7 @@ class CapsuleStore:
                 resolved = capsule.file_path
             if resolved not in seen:
                 self.db.delete(capsule)
+        self.db.flush()
         hashes: dict[str, list[str]] = {}
         for row in self.db.query(Capsule).filter(Capsule.archived.is_(False), Capsule.content_hash.isnot(None)):
             hashes.setdefault(row.content_hash, []).append(row.file_path or row.id)

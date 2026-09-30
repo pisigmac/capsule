@@ -262,12 +262,44 @@ def stale(days):
 @cli.command()
 @click.argument("directory", type=click.Path(exists=True, file_okay=False), required=False)
 @click.option("--watch", "-w", is_flag=True, help="Keep watching for changes")
-def sync(directory, watch):
-    """Reindex .capsule.md files into the search database."""
-    watch_dir = directory or str(config.capsules_dir)
-    service = CapsuleSyncService(watch_dirs=[watch_dir])
+@click.option("--obsidian", type=click.Path(exists=True, file_okay=False), default=None, help="Sync an Obsidian vault directory")
+@click.option("--tag", "-t", default=None, help="Filter Obsidian notes by tag (e.g. #agent-memory)")
+@click.option("--dry-run", is_flag=True, help="Preview Obsidian notes to sync without importing")
+def sync(directory, watch, obsidian, tag, dry_run):
+    """Reindex .capsule.md files or sync an Obsidian vault."""
+    if obsidian:
+        from services.sync.obsidian_adapter import ObsidianVaultSync
+
+        db = session()
+        try:
+            store = CapsuleStore(db)
+            syncer = ObsidianVaultSync(store=store, vault_path=obsidian, tag_filter=tag)
+            res = syncer.sync(dry_run=dry_run)
+            if dry_run:
+                console.print(f"[bold yellow]Obsidian Vault Dry Run:[/bold yellow] Found {res.scanned_count} matching note(s) in {obsidian}")
+                for note in res.notes:
+                    tags_s = ", ".join(note.tags)
+                    console.print(f"  • [cyan]\"{note.topic}\"[/cyan] [dim][{tags_s}][/dim]")
+                return
+
+            console.print(
+                f"[green]✓ Obsidian sync complete:[/green] Scanned {res.scanned_count} notes, "
+                f"created {res.created_count}, updated {res.updated_count}, "
+                f"linked {res.linked_count} [[WikiLink]] relationships."
+            )
+        finally:
+            db.close()
+
+        if not watch:
+            return
+
+    watch_dirs = [directory or str(config.capsules_dir)]
+    if obsidian and watch:
+        watch_dirs.append(obsidian)
+
+    service = CapsuleSyncService(watch_dirs=watch_dirs, include_markdown=bool(obsidian))
     count = service.initial_sync()
-    console.print(f"[green]Synced {count} capsule(s) from {watch_dir}[/green]")
+    console.print(f"[green]Synced {count} capsule(s) from {', '.join(watch_dirs)}[/green]")
     if watch:
         console.print("[dim]Watching for changes... (Ctrl+C to stop)[/dim]")
         service.start()
@@ -280,6 +312,61 @@ def sync(directory, watch):
             console.print("\n[dim]Stopping watcher...[/dim]")
         finally:
             service.stop()
+
+
+@cli.command("link-vault")
+@click.argument("vault_path", type=click.Path(exists=True, file_okay=False), required=False)
+@click.option("--name", default="obsidian", help="Symlink folder name inside capsules_dir")
+@click.option("--unlink", is_flag=True, help="Remove existing vault symlink")
+@click.option("--dir", "capsules_dir", type=click.Path(), default=None, help="Custom capsules directory path")
+def link_vault_cmd(vault_path, name, unlink, capsules_dir):
+    """Link or unlink an Obsidian vault directory directly into Capsule memory."""
+    from services.sync.symlink_manager import VaultSymlinkManager
+
+    caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
+    manager = VaultSymlinkManager(capsules_dir=caps_path)
+
+    if unlink:
+        res = manager.unlink_vault(link_name=name)
+        if res.success:
+            console.print(f"[green]✓[/green] {res.message}")
+            db = session()
+            try:
+                store = CapsuleStore(db, capsules_dir=caps_path)
+                count = store.reconcile()
+                db.commit()
+                console.print(f"[dim]Reconciled store: {count} active capsules remaining.[/dim]")
+            finally:
+                db.close()
+        else:
+            console.print(f"[red]✗[/red] {res.message}")
+        return
+
+    if not vault_path:
+        links = manager.get_linked_vaults()
+        if not links:
+            console.print(f"[yellow]No linked vaults in {caps_path}[/yellow]")
+            console.print("[dim]Usage: caps link-vault <path-to-obsidian-vault>[/dim]")
+        else:
+            console.print(f"[bold]Active Vault Links in {caps_path}:[/bold]")
+            for link_name, link_p, target_p in links:
+                console.print(f"  • [cyan]{link_name}[/cyan] → [dim]{target_p}[/dim]")
+        return
+
+    res = manager.link_vault(vault_path=vault_path, link_name=name)
+    if res.success:
+        console.print(f"[green]✓[/green] {res.message}")
+        db = session()
+        try:
+            store = CapsuleStore(db, capsules_dir=caps_path)
+            count = store.reconcile()
+            db.commit()
+            console.print(f"[green]Indexed {count} total capsule(s) (including notes from linked vault).[/green]")
+        finally:
+            db.close()
+    else:
+        console.print(f"[red]✗[/red] {res.message}")
+
 
 
 @cli.command()
@@ -352,6 +439,118 @@ def init():
         else:
             db.commit()
             console.print(f"[dim]Workspace ready. Indexed {indexed} existing capsule(s).[/dim]")
+    finally:
+        db.close()
+
+
+@cli.command("demo")
+@click.option("--non-interactive", is_flag=True, help="Run without interactive pause prompts")
+def demo_cmd(non_interactive):
+    """Run an interactive 30-second tour of Capsule memory & token savings."""
+    from .demo.runner import DemoExperience
+
+    DemoExperience(console=console, interactive=not non_interactive).run()
+
+
+@cli.command("browse")
+@click.option("--dir", "capsules_dir", type=click.Path(), default=None, help="Custom capsules directory path")
+def browse_cmd(capsules_dir):
+    """Launch the interactive terminal TUI browser for capsules."""
+    from .tui.browser import TuiBrowser
+
+    caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
+    db = session()
+    try:
+        browser = TuiBrowser(db_session=db, capsules_dir=caps_path, console=console)
+        browser.run()
+    finally:
+        db.close()
+
+
+@cli.command("tui")
+@click.option("--dir", "capsules_dir", type=click.Path(), default=None, help="Custom capsules directory path")
+def tui_cmd(capsules_dir):
+    """Interactive terminal browser alias for browse."""
+    from .tui.browser import TuiBrowser
+
+    caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
+    db = session()
+    try:
+        browser = TuiBrowser(db_session=db, capsules_dir=caps_path, console=console)
+        browser.run()
+    finally:
+        db.close()
+
+
+@cli.command("ingest")
+@click.argument("target", type=click.Path(exists=True))
+@click.option("--tag", "-t", multiple=True, help="Tags to attach to ingested capsules")
+@click.option("--mode", "-m", type=click.Choice(["ast", "llm"]), default="ast", help="Decomposition mode (ast or llm)")
+@click.option("--model", default="gemini-2.5-flash", help="LLM model name for semantic extraction")
+@click.option("--confidence", "-c", type=click.Choice(["high", "medium", "low", "hearsay"]), default="high")
+@click.option("--dry-run", is_flag=True, help="Preview atomic capsules without saving to disk")
+@click.option("--dir", "capsules_dir", type=click.Path(), default=None, help="Custom capsules directory path")
+def ingest_cmd(target, tag, mode, model, confidence, dry_run, capsules_dir):
+    """Decompose existing markdown documents or directories into atomic capsules."""
+    from services.ingest import DocumentDecomposer
+
+    target_path = Path(target).resolve()
+    caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
+    db = session()
+    try:
+        store = CapsuleStore(db, capsules_dir=caps_path)
+        decomposer = DocumentDecomposer(
+            store=store,
+            mode=mode,
+            confidence=confidence,
+            model=model,
+            extra_tags=list(tag),
+        )
+
+        files = decomposer.collect_files(target_path)
+        if not files:
+            console.print(f"[yellow]No markdown files found under {target}[/yellow]")
+            return
+
+        dry_label = " [yellow](DRY RUN — Preview Only)[/yellow]" if dry_run else ""
+        console.print(
+            Panel(
+                f"[bold]Capsule Document Decomposer[/bold]{dry_label}\n"
+                f"Source: [cyan]{target_path}[/cyan] ({len(files)} markdown file{'s' if len(files) != 1 else ''})\n"
+                f"Target Dir: [dim]{caps_path}[/dim]\n"
+                f"Mode: [green]{mode.upper()}[/green]" + (f" ({model})" if mode == "llm" else "") + f"  Confidence: [yellow]{confidence}[/yellow]",
+                border_style="blue",
+            )
+        )
+
+        def on_progress(file_path: Path, units, created, deduped):
+            rel_name = file_path.name
+            if dry_run:
+                console.print(f"\n[bold]Scanned {rel_name}[/bold] → Found {len(units)} candidate atomic cap(s):")
+                for u in units:
+                    tags_str = ", ".join(u.tags)
+                    console.print(f"  [cyan][dry-run][/cyan] \"{u.topic}\" [dim][{tags_str}][/dim]")
+            else:
+                summary_parts = []
+                if created:
+                    summary_parts.append(f"[green]{created} created[/green]")
+                if deduped:
+                    summary_parts.append(f"[yellow]{deduped} duplicate(s) merged[/yellow]")
+                summary_str = f" ({', '.join(summary_parts)})" if summary_parts else ""
+                console.print(f"  [green]✓[/green] Ingested [bold]{rel_name}[/bold] → {len(units)} cap(s){summary_str}")
+
+        result = decomposer.ingest_path(target_path, dry_run=dry_run, on_progress=on_progress)
+
+        if dry_run:
+            console.print(
+                f"\n[bold yellow]Dry Run Complete:[/bold yellow] Found {result.total_units} atomic unit(s) across {result.total_files} file(s). Zero files written to disk."
+            )
+        else:
+            console.print(
+                f"\n[bold green]Ingestion complete![/bold green] Created [bold cyan]{result.created_count}[/bold cyan] new cap(s) in [dim]{caps_path}[/dim]"
+                + (f" ([yellow]{result.deduped_count}[/yellow] duplicates skipped via content hash)" if result.deduped_count else "")
+                + ". Run [cyan]`caps browse`[/cyan] or [cyan]`caps search`[/cyan] to explore."
+            )
     finally:
         db.close()
 
