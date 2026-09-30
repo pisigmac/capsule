@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T18:00:36.164411+00:00
-id: cf79996f1d99
-modified: 2026-09-30T18:00:36.164411+00:00
+created: 2026-09-30T18:07:18.162125+00:00
+id: 360f4785e3a9
+modified: 2026-09-30T18:07:18.162125+00:00
 source: daemon
 status: active
 tags:
@@ -44,6 +44,7 @@ type: todos
 - **[BUG]** -Override header is present, staging skips JWT. — `extensions/vscode-capsule/tests/test_service.js`
 - **[BUG]** -Override')); — `extensions/vscode-capsule/tests/test_service.js`
 - **[XXX]** xxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { — `extensions/vscode-capsule/src/extension.ts`
+- **[BUG]** -Override bypass header in the staging environment. — `tests/test_pydantic_ai_adapter.py`
 - **[BUG]** -Override bypass header in staging environment. — `tests/test_ci_linter.py`
 - **[BUG]** ", "auth", "staging"] — `tests/test_parser.py`
 - **[BUG]** , staging\n---\n\nContent." — `tests/test_parser.py`
@@ -60,6 +61,5 @@ type: todos
 - **[BUG]** workarounds are rarely written into formal documentation. Instead, they are described in **Git commit messages, PR descriptions, and code review discussions**. — `backlog.d/PHASE-2-02-git-pr-harvester.md`
 - **[BUG]** fix rationale, and design rules into structured `.caps.md` files. — `backlog.d/PHASE-2-02-git-pr-harvester.md`
 - **[BUG]** -Override" (commit: 8a4c1e) — `backlog.d/PHASE-2-02-git-pr-harvester.md`
-- **[BUG]** -Override header is present, staging skips JWT. │ — `backlog.d/PHASE-4-03-editor-extension.md`
 
-_... and 65 more_
+_... and 66 more_

@@ -483,22 +483,120 @@ def tui_cmd(capsules_dir):
 
 
 @cli.command("ingest")
-@click.argument("target", type=click.Path(exists=True))
+@click.argument("target", required=False, type=click.Path(exists=True))
+@click.option("--git", "use_git", is_flag=True, help="Harvest architectural decisions from Git commit logs")
+@click.option("--depth", "-d", default=50, type=int, help="Maximum number of commits to scan when --git is enabled")
+@click.option("--types", help="Filter git commits by type (e.g. 'fix,refactor,feat')")
+@click.option("--since", help="Filter git commits by date/time (e.g. '30d', '2 weeks ago')")
+@click.option("--prs", is_flag=True, help="Also harvest from merged GitHub pull requests")
 @click.option("--tag", "-t", multiple=True, help="Tags to attach to ingested capsules")
 @click.option("--mode", "-m", type=click.Choice(["ast", "llm"]), default="ast", help="Decomposition mode (ast or llm)")
 @click.option("--model", default="gemini-2.5-flash", help="LLM model name for semantic extraction")
 @click.option("--confidence", "-c", type=click.Choice(["high", "medium", "low", "hearsay"]), default="high")
 @click.option("--dry-run", is_flag=True, help="Preview atomic capsules without saving to disk")
 @click.option("--dir", "capsules_dir", type=click.Path(), default=None, help="Custom capsules directory path")
-def ingest_cmd(target, tag, mode, model, confidence, dry_run, capsules_dir):
-    """Decompose existing markdown documents or directories into atomic capsules."""
-    from services.ingest import DocumentDecomposer
+def ingest_cmd(target, use_git, depth, types, since, prs, tag, mode, model, confidence, dry_run, capsules_dir):
+    """Decompose markdown documents or harvest git commit history into atomic capsules."""
+    from services.ingest import DocumentDecomposer, GitHarvester, PRHarvester
 
-    target_path = Path(target).resolve()
     caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
     db = session()
     try:
         store = CapsuleStore(db, capsules_dir=caps_path)
+
+        # -------------------------------------------------------------
+        # 1. Git Harvester Mode
+        # -------------------------------------------------------------
+        if use_git:
+            repo_path = Path(target).resolve() if target else Path.cwd()
+            commit_types = [t.strip() for t in types.split(",") if t.strip()] if types else None
+
+            dry_label = " [yellow](DRY RUN — Preview Only)[/yellow]" if dry_run else ""
+            console.print(
+                Panel(
+                    f"[bold]Capsule Git History Harvester[/bold]{dry_label}\n"
+                    f"Repository: [cyan]{repo_path}[/cyan] (depth: {depth} commits)\n"
+                    f"Target Dir: [dim]{caps_path}[/dim]\n"
+                    f"Types: [green]{types or 'All architectural'}[/green]  Confidence: [yellow]{confidence}[/yellow]",
+                    border_style="blue",
+                )
+            )
+
+            harvester = GitHarvester()
+
+            def on_git_progress(item, created, deduped):
+                if dry_run:
+                    tags_str = ", ".join(item.tags)
+                    console.print(f"  [cyan][dry-run][/cyan] \"{item.topic}\" ({item.short_sha}) [dim][{tags_str}][/dim]")
+                else:
+                    status = "[green]✓ Created[/green]" if created else "[yellow]Duplicate skipped[/yellow]"
+                    console.print(f"  {status} [bold]{item.topic}[/bold] ({item.short_sha})")
+
+            result = harvester.harvest(
+                repo_path=repo_path,
+                store=store,
+                depth=depth,
+                types=commit_types,
+                since=since,
+                default_confidence=confidence,
+                dry_run=dry_run,
+                extra_tags=list(tag),
+                on_progress=on_git_progress,
+            )
+
+            # Optional PR harvesting
+            if prs:
+                pr_harvester = PRHarvester()
+                pr_items = pr_harvester.extract_merged_prs(
+                    repo_path=repo_path,
+                    limit=depth,
+                    default_confidence=confidence,
+                    extra_tags=list(tag),
+                )
+                if pr_items:
+                    console.print(f"\n[bold]Harvesting {len(pr_items)} merged PR(s)...[/bold]")
+                    for pr_item in pr_items:
+                        if dry_run:
+                            console.print(f"  [cyan][dry-run-pr][/cyan] \"{pr_item.topic}\" ({pr_item.short_sha})")
+                            result.total_units += 1
+                        else:
+                            try:
+                                cap = store.create(
+                                    topic=pr_item.topic,
+                                    content=pr_item.content,
+                                    tags=pr_item.tags,
+                                    source=pr_item.source,
+                                    confidence=pr_item.confidence,
+                                )
+                                if getattr(cap, "deduped", False):
+                                    result.deduped_count += 1
+                                else:
+                                    result.created_count += 1
+                                result.total_units += 1
+                                console.print(f"  [green]✓ Created[/green] [bold]{pr_item.topic}[/bold] ({pr_item.short_sha})")
+                            except Exception as e:
+                                logger.error("Failed to store PR cap: %s", e)
+
+            if dry_run:
+                console.print(
+                    f"\n[bold yellow]Dry Run Complete:[/bold yellow] Found {result.total_units} candidate invariant(s) in git history. Zero files written to disk."
+                )
+            else:
+                console.print(
+                    f"\n[bold green]Git harvesting complete![/bold green] Created [bold cyan]{result.created_count}[/bold cyan] new cap(s) in [dim]{caps_path}[/dim]"
+                    + (f" ([yellow]{result.deduped_count}[/yellow] duplicates skipped via content hash)" if result.deduped_count else "")
+                    + ". Run [cyan]`caps browse`[/cyan] or [cyan]`caps search`[/cyan] to explore."
+                )
+            return
+
+        # -------------------------------------------------------------
+        # 2. Document Decomposer Mode (Default)
+        # -------------------------------------------------------------
+        if not target:
+            console.print("[red]Error:[/red] Missing argument 'TARGET'. Specify a markdown file/directory or pass '--git'.")
+            sys.exit(1)
+
+        target_path = Path(target).resolve()
         decomposer = DocumentDecomposer(
             store=store,
             mode=mode,

@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T18:00:36.125902+00:00
-id: 0cc24156114f
-modified: 2026-09-30T18:00:36.125902+00:00
+created: 2026-09-30T18:07:18.124088+00:00
+id: 3bbeed0c172d
+modified: 2026-09-30T18:07:18.124088+00:00
 source: daemon
 status: active
 tags:
@@ -194,11 +194,11 @@ type: structure
     test_oci_registry.py
     test_parser.py
     test_postgres.py
+    test_pydantic_ai_adapter.py
     test_registry.py
     test_search.py
     test_sync.py
-    test_tui.py
-    ... (1 more)
+    ... (2 more)
   templates/
     meeting.md
     person.md
