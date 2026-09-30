@@ -9,7 +9,7 @@ description = "Atomic knowledge management for AI agents (Capsule)"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Kapsule"}
+    {name = "Vikas Budde", email = "sigmapi1@outlook.com"}
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

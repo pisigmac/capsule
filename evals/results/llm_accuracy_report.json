@@ -1,0 +1,98 @@
+{
+  "model_evaluated": "Gemini 2.5 Flash",
+  "total_queries": 5,
+  "naive_avg_prompt_tokens": 379.8,
+  "capsule_avg_prompt_tokens": 238.2,
+  "prompt_token_savings_pct": 37.3,
+  "naive_avg_accuracy": 50.0,
+  "capsule_avg_accuracy": 93.3,
+  "naive_avg_answer_tokens": 81.6,
+  "capsule_avg_answer_tokens": 75.4,
+  "queries": [
+    {
+      "query_id": "Q1",
+      "query": "How does staging bypass JWT authentication, and what CI pipeline depends on it?",
+      "naive": {
+        "prompt_tokens": 333,
+        "answer_tokens": 62,
+        "accuracy": 100.0,
+        "answer": "Staging bypasses JWT authentication when the HTTP header `X-Debug-Override` is present in a request, due to an environment check `ENV == 'staging'`. Mobile CI pipelines, specifically Android and iOS nightly integration suites, depend on this behavior to bypass third-party OAuth providers during stress testing."
+      },
+      "capsule": {
+        "prompt_tokens": 176,
+        "answer_tokens": 55,
+        "accuracy": 100.0,
+        "answer": "Staging bypasses JWT authentication by skipping `JWT verification` when the `X-Debug-Override` header is present. Mobile CI automation pipelines, including Android/iOS integration suites, directly depend on this `X-Debug-Override` auth bypass mechanism for their operations."
+      },
+      "prompt_savings_pct": 47.1
+    },
+    {
+      "query_id": "Q2",
+      "query": "What are the database schema and search index requirements for SQLite and Postgres?",
+      "naive": {
+        "prompt_tokens": 388,
+        "answer_tokens": 91,
+        "accuracy": 100.0,
+        "answer": "For **SQLite**, the primary table `capsules` utilizes an integer `rowid` for high-performance joins with the `capsule_search` virtual table. Search indexing is handled by FTS5, configured with porter stemmer tokenization for fuzzy suffix matching.\n\nFor **PostgreSQL**, search is implemented via native `tsvector` generated columns with GIN (Generalized Inverted Index) indexing. Connection pooling is managed using `psycopg3`."
+      },
+      "capsule": {
+        "prompt_tokens": 258,
+        "answer_tokens": 81,
+        "accuracy": 100.0,
+        "answer": "For SQLite, the schema integrates the `capsules` table with the `capsule_search` virtual table via an internal `rowid`, employing an FTS5 porter stemmer for search indexing. PostgreSQL 16 utilizes `tsvector` generated columns with GIN indexes for search, enabling concurrent multi-worker access. Both databases are derived search indexes, fully rebuildable from `.capsule.md` files."
+      },
+      "prompt_savings_pct": 33.5
+    },
+    {
+      "query_id": "Q3",
+      "query": "How does content deduplication work when an agent submits a duplicate fact, and what happens on update conflict?",
+      "naive": {
+        "prompt_tokens": 346,
+        "answer_tokens": 125,
+        "accuracy": 0.0,
+        "answer": "For **Content Deduplication**, Capsule implements **Hash-Based Deduplication** using normalized SHA-256 digests of content, where whitespace is normalized before hashing. If a new capsule's content hash matches an existing active capsule (Collision Resolution), no new `.capsule.md` file is written, the existing capsule's tags are merged, and the API responds with **HTTP 200** and sets `deduped: true`.\n\nRegarding **Update Conflict**, if an existing capsule is updated via `PATCH /capsules/{id}` to identical content of another capsule, the API raises **HTTP 409 Conflict**."
+      },
+      "capsule": {
+        "prompt_tokens": 183,
+        "answer_tokens": 69,
+        "accuracy": 66.66666666666666,
+        "answer": "# Update Conflict Prevention on Deduplication Updating a capsule via `PATCH /capsules/{id}` to match the content of another existing capsule raises HTTP 409 Conflict to prevent duplicate facts under differing IDs If duplicate content is posted, Capsule merges tags and returns HTTP 200 with `deduped: true` rather than writing a duplicate file"
+      },
+      "prompt_savings_pct": 47.1
+    },
+    {
+      "query_id": "Q4",
+      "query": "How is the MCP server configured for stdio and HTTP, and what tools does it provide to agents?",
+      "naive": {
+        "prompt_tokens": 433,
+        "answer_tokens": 68,
+        "accuracy": 0.0,
+        "answer": "The Model Context Protocol (MCP) allows AI coding assistants (such as Claude Desktop, Cursor, and Antigravity) to query and manipulate external tools in a standardized protocol It monitors the root `CAPSULES_DIR` for file creation, modification, and deletion events Capsule provides an official MCP server implemented using the `mcp"
+      },
+      "capsule": {
+        "prompt_tokens": 218,
+        "answer_tokens": 122,
+        "accuracy": 100.0,
+        "answer": "Capsule's official FastMCP server runs in two modes: default `stdio` for local AI assistants (spawned via `capsule mcp`), and `Streamable HTTP` on port 9101 (`capsule mcp --http --port 9101`) The MCP server exposes 5 tools: `search_capsules` (query index), `compose_context` (token-budgeted markdown prompt), `get_capsule` (fetch by ID), `create_capsule` (persist fact), and `list_stale` (detect outdated knowledge) # MCP Server stdio and HTTP Modes"
+      },
+      "prompt_savings_pct": 49.7
+    },
+    {
+      "query_id": "Q5",
+      "query": "What happens if the search database is deleted, and how does the filesystem watchdog maintain sync?",
+      "naive": {
+        "prompt_tokens": 399,
+        "answer_tokens": 62,
+        "accuracy": 50.0,
+        "answer": "If the SQLite file or PostgreSQL database is deleted or corrupted, the system performs a zero-data-loss reconciliation Capsule is designed around a dual-plane architecture where filesystem storage is the canonical source of truth and relational databases serve solely as derived search indexes Deleted: The corresponding row and its tag relationships are removed from the database index"
+      },
+      "capsule": {
+        "prompt_tokens": 356,
+        "answer_tokens": 50,
+        "accuracy": 100.0,
+        "answer": "If the database is deleted, Capsule reconciles and fully rebuilds all tables and tags from ` # Filesystem Watchdog Sync Cycle The sync service uses `watchdog` with 250ms debouncing to monitor `CAPSULES_DIR`"
+      },
+      "prompt_savings_pct": 10.8
+    }
+  ]
+}

@@ -45,3 +45,7 @@ frontend/*.local
 # AgentDrive
 .vault/
 .session
+
+# Research Paper & Drafts
+paper/
+next_strategy.md

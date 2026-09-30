@@ -1,7 +1,7 @@
 ---
-created: 2026-09-29T11:07:28.515415+00:00
-id: d68229d18512
-modified: 2026-09-29T11:07:28.515415+00:00
+created: 2026-09-30T04:48:14.451848+00:00
+id: 5584723050f4
+modified: 2026-09-30T04:48:14.451848+00:00
 source: daemon
 status: active
 tags:
@@ -138,17 +138,27 @@ type: structure
     compose-builds-an-agent-context-window-3a91c0be.capsule.md
     optional-api-token-for-exposed-instances-55e0b7d2.capsule.md
     postgres-is-the-shared-index-9b1e4c70.capsule.md
+    project-codemap-and-architecture-layers-bfacccb9.capsule.md
     search-uses-integer-fts5-rowids-0d4e18aa.capsule.md
     ui-write-path-creates-a-markdown-file-8fec4efd.capsule.md
     capsules/archived/
     capsules/shared/
+  kapsule.egg-info/
+    PKG-INFO
+    SOURCES.txt
+    dependency_links.txt
+    entry_points.txt
+    requires.txt
+    top_level.txt
   commits/
     2026-09-01.md
     2026-09-05.md
     2026-09-29.md
+    2026-09-30.md
   meetings/
   projects/
     README.md
+    codemap.md
     health.md
     infrastructure.md
     structure.md

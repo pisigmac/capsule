@@ -275,6 +275,7 @@ class SearchEngine:
         confidence_min: Optional[str] = None,
         max_tokens: int = 4000,
         mode: str = "fts",
+        match_all_tags: bool = False,
     ) -> Dict[str, Any]:
         capsules = self.search(
             query=query or "",
@@ -283,6 +284,7 @@ class SearchEngine:
             limit=200,
             offset=0,
             mode=mode,
+            match_all_tags=match_all_tags,
         )
 
         if confidence_min:
