@@ -1,7 +1,7 @@
 ---
-created: 2026-09-01T05:23:04.160076+00:00
-id: 2022462404b2
-modified: 2026-09-01T05:23:04.160076+00:00
+created: 2026-09-29T11:07:28.507790+00:00
+id: e26bf33d4dcc
+modified: 2026-09-29T11:07:28.507790+00:00
 source: daemon
 status: active
 tags:
@@ -96,7 +96,20 @@ capsule mcp    # stdio MCP server for agents
 
 ## MCP
 
-Point an MCP client at `capsule mcp` (stdio). Tools: `search_capsules`, `compose_context`, `get_capsule`, `create_capsule`, `list_stale`.
+Point an MCP client at `capsule mcp` (official SDK, stdio). Optional: `capsule mcp --http --port 9101`.
+
+Tools: `search_capsules`, `compose_context`, `get_capsule`, `create_capsule`, `list_stale`.
+
+```json
+{
+  "mcpServers": {
+    "capsule": {
+      "command": "capsule",
+      "args": ["mcp"]
+    }
+  }
+}
+```
 
 ## Architecture
 

@@ -37,10 +37,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build korn and pykorn
+      - name: Build distributions
         run: bash scripts/build_pypi.sh
 
       - name: Check distributions
         run: |
           python -m pip install twine
-          python -m twine check dist/korn/* dist/pykorn/*
+          python -m twine check dist/*/*

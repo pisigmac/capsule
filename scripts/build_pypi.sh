@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build sdist + wheel for each PyPI name (korn and pykorn).
+# Build sdist + wheel for each PyPI name (kapsule, korn, and pykorn).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 OUT="${1:-dist}"
-NAMES=(korn pykorn)
+NAMES=(kapsule korn pykorn)
 
 python3 - <<'PY'
 from pathlib import Path
