@@ -843,5 +843,82 @@ def inspect_cmd(reference: str):
         sys.exit(1)
 
 
+@cli.group()
+def ci():
+    """CI verification, schema linting, and invariant conflict checks."""
+    pass
+
+
+@ci.command("check")
+@click.argument("path", required=False, type=click.Path())
+@click.option("--strict", is_flag=True, help="Fail on warnings or invariant alerts")
+@click.option("--base", "-b", default=None, help="Base git branch/ref for PR diff checking (e.g. 'origin/main')")
+@click.option("--diff/--no-diff", "check_diff", default=True, help="Enable or disable git diff invariant checking")
+@click.option("--json", "output_json", is_flag=True, help="Output results as JSON")
+@click.option("--github-summary", is_flag=True, help="Write markdown report to $GITHUB_STEP_SUMMARY")
+@click.option("--output-md", type=click.Path(), help="Write markdown summary to specified file")
+def ci_check(
+    path: Optional[str],
+    strict: bool,
+    base: Optional[str],
+    check_diff: bool,
+    output_json: bool,
+    github_summary: bool,
+    output_md: Optional[str],
+):
+    """Verify schema integrity of all capsules and detect PR invariant conflicts."""
+    import json as json_lib
+    from capsule_cli.ci.linter import CapsuleLinter
+    from capsule_cli.ci.pr_diff import PRDiffChecker
+    from capsule_cli.ci.summary import (
+        generate_markdown_summary,
+        render_terminal_report,
+        write_github_step_summary,
+    )
+
+    # Determine target directory
+    if path:
+        target_dir = Path(path)
+    else:
+        target_dir = Path("caps") if Path("caps").is_dir() else Path(config.capsules_dir)
+
+    linter = CapsuleLinter()
+    report = linter.lint_directory(target_dir)
+
+    if check_diff:
+        checker = PRDiffChecker()
+        changed_files = checker.get_changed_files(base_ref=base)
+        alerts = checker.check_invariants(changed_files, target_dir)
+        report.invariant_alerts = alerts
+
+    if output_json:
+        click.echo(json_lib.dumps(report.to_dict(), indent=2))
+    else:
+        render_terminal_report(report, console)
+
+    md_summary = generate_markdown_summary(report)
+
+    if github_summary or os.environ.get("GITHUB_STEP_SUMMARY"):
+        write_github_step_summary(md_summary)
+
+    if output_md:
+        try:
+            Path(output_md).write_text(md_summary, encoding="utf-8")
+        except Exception as e:
+            console.print(f"[red]Error writing markdown summary to '{output_md}':[/red] {e}")
+
+    # Determine exit code
+    if strict:
+        if not report.is_strict_success():
+            sys.exit(1)
+    else:
+        if not report.is_success:
+            sys.exit(1)
+
+
+# Register lint as a direct top-level alias for ci check
+cli.add_command(ci_check, name="lint")
+
+
 if __name__ == "__main__":
     cli()
