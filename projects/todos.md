@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T18:07:18.162125+00:00
-id: 360f4785e3a9
-modified: 2026-09-30T18:07:18.162125+00:00
+created: 2026-09-30T18:14:18.946839+00:00
+id: 0c472f2b7090
+modified: 2026-09-30T18:14:18.946839+00:00
 source: daemon
 status: active
 tags:
@@ -17,6 +17,7 @@ type: todos
 - **[BUG]** -Override` is present. — `README.md`
 - **[BUG]** ging.md` file. Format: `ERROR: <Details> | Date: <date> | Status: <new/re-occur> | Fix: <Fix description>`. — `AGENTS.md`
 - **[BUG]** ging log — `debugging.md`
+- **[BUG]** fix rationale.""" — `services/ingest/git_harvester.py`
 - **[BUG]** s — `services/registry/builtins.py`
 - **[BUG]** " — `frontend/src/App.tsx`
 - **[BUG]** ging and development cycle (100 total fact submissions with a 75% recurring fact rate). — `docs/BENCHMARKS.md`
@@ -45,6 +46,9 @@ type: todos
 - **[BUG]** -Override')); — `extensions/vscode-capsule/tests/test_service.js`
 - **[XXX]** xxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { — `extensions/vscode-capsule/src/extension.ts`
 - **[BUG]** -Override bypass header in the staging environment. — `tests/test_pydantic_ai_adapter.py`
+- **[BUG]** -Override header\n\nWhen testing on mobile CI, staging allows bypassing JWT authentication when the debug override header is passed.", — `tests/test_git_harvester.py`
+- **[BUG]** Fix Invariant — `tests/test_git_harvester.py`
+- **[BUG]** -Override header" in t for t in topics) — `tests/test_git_harvester.py`
 - **[BUG]** -Override bypass header in staging environment. — `tests/test_ci_linter.py`
 - **[BUG]** ", "auth", "staging"] — `tests/test_parser.py`
 - **[BUG]** , staging\n---\n\nContent." — `tests/test_parser.py`
@@ -57,9 +61,5 @@ type: todos
 - **[BUG]** -Override.") — `tests/test_langchain_adapter.py`
 - **[BUG]** -Override" in output.text — `tests/test_langchain_adapter.py`
 - **[BUG]** ] — `tests/test_sync.py`
-- **[BUG]** -Override is passed. — `tests/test_llamaindex_adapter.py`
-- **[BUG]** workarounds are rarely written into formal documentation. Instead, they are described in **Git commit messages, PR descriptions, and code review discussions**. — `backlog.d/PHASE-2-02-git-pr-harvester.md`
-- **[BUG]** fix rationale, and design rules into structured `.caps.md` files. — `backlog.d/PHASE-2-02-git-pr-harvester.md`
-- **[BUG]** -Override" (commit: 8a4c1e) — `backlog.d/PHASE-2-02-git-pr-harvester.md`
 
-_... and 66 more_
+_... and 70 more_

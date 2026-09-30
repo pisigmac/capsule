@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T18:07:18.124088+00:00
-id: 3bbeed0c172d
-modified: 2026-09-30T18:07:18.124088+00:00
+created: 2026-09-30T18:14:18.904014+00:00
+id: dccb7bf8400c
+modified: 2026-09-30T18:14:18.904014+00:00
 source: daemon
 status: active
 tags:
@@ -34,7 +34,9 @@ type: structure
       __init__.py
       ast_splitter.py
       decomposer.py
+      git_harvester.py
       llm_splitter.py
+      pr_harvester.py
     services/store/
       __init__.py
       store.py
@@ -186,6 +188,7 @@ type: structure
     test_demo.py
     test_e2e.py
     test_future.py
+    test_git_harvester.py
     test_ingest.py
     test_langchain_adapter.py
     test_llamaindex_adapter.py
@@ -197,8 +200,7 @@ type: structure
     test_pydantic_ai_adapter.py
     test_registry.py
     test_search.py
-    test_sync.py
-    ... (2 more)
+    ... (3 more)
   templates/
     meeting.md
     person.md
@@ -212,6 +214,4 @@ type: structure
     postgres-is-the-shared-index-9b1e4c70.capsule.md
     project-codemap-and-architecture-layers-bfacccb9.capsule.md
     search-uses-integer-fts5-rowids-0d4e18aa.capsule.md
-    ui-write-path-creates-a-markdown-file-8fec4efd.capsule.md
-    capsules/archived/
 ```

@@ -60,6 +60,9 @@ langchain = [
 llamaindex = [
     "llama-index-core>=0.10.0",
 ]
+crewai = [
+    "crewai>=0.28.0",
+]
 
 [project.scripts]
 capsule = "capsule_cli.main:cli"
