@@ -20,4 +20,7 @@ ERROR: CapsuleStore.reconcile failed to immediately persist orphan note deletion
 ERROR: Registry ZipSlipError inherited from non-existent built-in SecurityError in client.py causing NameError during test collection | Date: 2026-09-30 | Status: new | Fix: Subclassed Exception for ZipSlipError
 ERROR: Registry client and publisher called CapsuleParser.parse statically instead of CapsuleParser().parse_text causing AttributeError | Date: 2026-09-30 | Status: new | Fix: Instantiated CapsuleParser and called parse_text method
 ERROR: Zip slip path traversal checks were bypassed by unconditionally flattening extracted filenames via Path(member.filename).name | Date: 2026-09-30 | Status: new | Fix: Check member_path.parts for '..' components and verify resolved target path is prefixed by target directory root
+ERROR: SearchEngine.search called with confidence_min parameter instead of confidence in LangChain retriever adapter | Date: 2026-09-30 | Status: new | Fix: Pass confidence=self.confidence_min in CapsuleRetriever._get_relevant_documents
+ERROR: TarSlipError in packager.py inherited from non-existent built-in SecurityError causing NameError | Date: 2026-09-30 | Status: new | Fix: Subclassed Exception for TarSlipError
+ERROR: TarSlipError check in unpack_layer skipped members with leading dot before path traversal check | Date: 2026-09-30 | Status: new | Fix: Only skip directory entries and check member_path.parts for .. traversal before checking hidden files
 

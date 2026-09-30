@@ -184,6 +184,42 @@ class RegistryClient:
                 db_session=db_session,
             )
 
+        # 5. OCI Container Registry Reference (e.g. ghcr.io/org/repo:1.0)
+        from services.registry.oci import OCIClient, is_oci_reference
+        if is_oci_reference(pack_identifier):
+            oci_client = OCIClient()
+            oci_res = oci_client.pull(
+                reference=pack_identifier,
+                target_dir=target_dir,
+                dry_run=dry_run,
+                force=force,
+                db_session=db_session,
+            )
+            installed_infos = []
+            for fname in oci_res.installed:
+                file_p = target_dir / fname
+                if file_p.is_file():
+                    content = file_p.read_text(encoding="utf-8")
+                    installed_infos.append(self._parse_capsule_info(fname, content))
+                else:
+                    installed_infos.append(PulledCapsuleInfo(filename=fname, topic=fname, tags=[], confidence="medium"))
+
+            return PullResult(
+                pack_name=str(oci_res.reference),
+                installed=installed_infos,
+                skipped=oci_res.skipped,
+                manifest=PackManifest(
+                    name=str(oci_res.reference),
+                    version=oci_res.reference.tag or "latest",
+                    author=(oci_res.config or {}).get("org.opencontainers.image.authors", "OCI Registry"),
+                    description=(oci_res.config or {}).get("org.opencontainers.image.description", ""),
+                    caps_count=len(installed_infos),
+                ),
+                target_dir=target_dir,
+                dry_run=dry_run,
+                reconciled=oci_res.reconciled,
+            )
+
         available = list(BUILTIN_MANIFESTS.keys())
         raise RegistryError(
             f"Knowledge pack '{pack_identifier}' not found in registry. "

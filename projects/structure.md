@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T10:43:04.615616+00:00
-id: 7adb17860991
-modified: 2026-09-30T10:43:04.615616+00:00
+created: 2026-09-30T13:49:00.106138+00:00
+id: 2479aa9bc7e8
+modified: 2026-09-30T13:49:00.106138+00:00
 source: daemon
 status: active
 tags:
@@ -29,6 +29,11 @@ type: structure
   stop_all.sh
   services/
     __init__.py
+    services/ingest/
+      __init__.py
+      ast_splitter.py
+      decomposer.py
+      llm_splitter.py
     services/store/
       __init__.py
       store.py
@@ -46,10 +51,18 @@ type: structure
     services/sync/
       __init__.py
       __main__.py
+      obsidian_adapter.py
+      symlink_manager.py
       watcher.py
     services/gitcommit/
       __init__.py
       committer.py
+    services/registry/
+      __init__.py
+      builtins.py
+      client.py
+      manifest.py
+      publisher.py
     services/shared/
       __init__.py
       config.py
@@ -156,12 +169,18 @@ type: structure
     conftest.py
     test_api.py
     test_benchmark.py
+    test_demo.py
     test_e2e.py
     test_future.py
+    test_ingest.py
+    test_mcp_installer.py
+    test_obsidian_sync.py
     test_parser.py
     test_postgres.py
+    test_registry.py
     test_search.py
     test_sync.py
+    test_tui.py
   templates/
     meeting.md
     person.md
@@ -185,22 +204,14 @@ type: structure
     entry_points.txt
     requires.txt
     top_level.txt
-  commits/
-    2026-09-01.md
-    2026-09-05.md
-    2026-09-29.md
-    2026-09-30.md
-  capsule_cli/
-    __init__.py
-    __main__.py
-    main.py
-  meetings/
-  projects/
-    README.md
-    codemap.md
-    health.md
-    infrastructure.md
-    structure.md
-    tech-stack.md
-    todos.md
+  backlog.d/
+    PHASE-1-01-mcp-installer.md
+    PHASE-1-02-interactive-demo.md
+    PHASE-1-03-terminal-tui.md
+    PHASE-2-01-doc-ingest-decomposer.md
+    PHASE-2-02-git-pr-harvester.md
+    PHASE-2-03-obsidian-vault-sync.md
+    PHASE-3-01-langchain-langgraph-adapter.md
+    PHASE-3-02-llamaindex-adapter.md
+    PHASE-3-03-crewai-adapter.md
 ```

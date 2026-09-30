@@ -775,5 +775,73 @@ def pack_create(source_dir: str, name: str, version: str, author: str, desc: str
 cli.add_command(pack, name="registry")
 
 
+@cli.command()
+@click.argument("directory", type=click.Path(exists=True, file_okay=False))
+@click.option("--tag", "-t", required=True, help="OCI reference tag (e.g. 'ghcr.io/org/repo:1.0.0')")
+@click.option("--author", "-a", default="Community", help="Author attribution")
+@click.option("--desc", "-d", default="", help="Description of memory pack")
+def push(directory: str, tag: str, author: str, desc: str):
+    """Push a directory of capsules to an OCI container registry (GHCR, Docker Hub, ECR)."""
+    from services.registry.oci import OCIClient, OCIClientError
+
+    client = OCIClient()
+    console.print(f"[bold cyan]Packaging and pushing[/bold cyan] [yellow]'{directory}'[/yellow] to [bold]{tag}[/bold] ...")
+    try:
+        res = client.push(
+            source_dir=Path(directory),
+            reference=tag,
+            author=author,
+            description=desc,
+        )
+        console.print(f"[bold green]✓ Successfully pushed OCI memory artifact:[/bold green] [cyan]{res.reference}[/cyan]")
+        console.print(f"  Manifest Digest: [dim]{res.manifest_digest}[/dim]")
+        console.print(f"  Layer Digest:    [dim]{res.layer_digest}[/dim]")
+        console.print(f"  Capsules:        [bold]{res.caps_count}[/bold] ({res.layer_size / 1024:.1f} KB)")
+    except (OCIClientError, Exception) as e:
+        console.print(f"[red]Error pushing to registry:[/red] {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument("registry")
+@click.option("--username", "-u", required=True, help="Registry username")
+@click.option("--password", "-p", required=True, help="Registry password or personal access token")
+def login(registry: str, username: str, password: str):
+    """Authenticate with an OCI container registry (GHCR, Docker Hub, ECR)."""
+    from services.registry.oci.auth import OCIAuthManager
+
+    mgr = OCIAuthManager()
+    mgr.store_credentials(registry, username, password)
+    console.print(f"[bold green]✓ Login Succeeded[/bold green] for [cyan]{registry}[/cyan] (user: {username})")
+
+
+@cli.command("inspect")
+@click.argument("reference")
+def inspect_cmd(reference: str):
+    """Inspect remote OCI artifact manifest and configuration without downloading."""
+    from services.registry.oci import OCIClient, OCIClientError
+
+    client = OCIClient()
+    console.print(f"[bold cyan]Inspecting remote artifact[/bold cyan] [yellow]'{reference}'[/yellow] ...")
+    try:
+        info = client.inspect(reference)
+        console.print(
+            Panel(
+                f"[bold]Reference:[/bold] [cyan]{info['reference']}[/cyan]\n"
+                f"[bold]Digest:[/bold] [dim]{info['digest']}[/dim]\n"
+                f"[bold]Media Type:[/bold] {info['mediaType']}\n"
+                f"[bold]Layers:[/bold] {len(info['layers'])}\n"
+                f"[bold]Author:[/bold] {info['annotations'].get('org.opencontainers.image.authors', 'N/A')}\n"
+                f"[bold]Created:[/bold] {info['annotations'].get('org.opencontainers.image.created', 'N/A')}\n"
+                f"[bold]Description:[/bold] {info['annotations'].get('org.opencontainers.image.description', 'N/A')}",
+                title="OCI Artifact Metadata",
+                border_style="blue",
+            )
+        )
+    except (OCIClientError, Exception) as e:
+        console.print(f"[red]Error inspecting artifact:[/red] {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()

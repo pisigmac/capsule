@@ -54,6 +54,12 @@ eval = [
     "matplotlib>=3.8.0",
     "google-genai>=1.0.0",
 ]
+langchain = [
+    "langchain-core>=0.2.0",
+]
+llamaindex = [
+    "llama-index-core>=0.10.0",
+]
 
 [project.scripts]
 capsule = "capsule_cli.main:cli"
@@ -70,7 +76,7 @@ Changelog = "https://github.com/pisigmac/capsule/releases"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["services*", "capsule_cli*", "evals*"]
+include = ["services*", "capsule_cli*", "evals*", "kapsule*"]
 
 [tool.setuptools.package-data]
 "evals.data" = ["*.json", "*.md"]
