@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T13:49:00.137634+00:00
-id: fad1f1bc5392
-modified: 2026-09-30T13:49:00.137634+00:00
+created: 2026-09-30T16:58:25.449848+00:00
+id: 6528ab6d5fdf
+modified: 2026-09-30T16:58:25.449848+00:00
 source: daemon
 status: active
 tags:
@@ -41,13 +41,19 @@ type: todos
 - **[BUG]** -Override", "mobile", "CI"], — `evals/data/build_datasets.py`
 - **[BUG]** -Override header is provided.", ["auth", "staging"]), — `evals/data/build_datasets.py`
 - **[BUG]** -Override header bypass in staging.", ["ci", "mobile", "auth"]), — `evals/data/build_datasets.py`
+- **[BUG]** -Override bypass header in staging environment. — `tests/test_ci_linter.py`
 - **[BUG]** ", "auth", "staging"] — `tests/test_parser.py`
 - **[BUG]** , staging\n---\n\nContent." — `tests/test_parser.py`
 - **[BUG]** ", "staging"] — `tests/test_parser.py`
 - **[BUG]** , auth, staging] — `tests/conftest.py`
 - **[BUG]** -Override` is present. — `tests/conftest.py`
 - **[BUG]** ] — `tests/conftest.py`
+- **[BUG]** -Override is passed. — `tests/test_langchain_adapter.py`
+- **[BUG]** -Override" in context — `tests/test_langchain_adapter.py`
+- **[BUG]** -Override.") — `tests/test_langchain_adapter.py`
+- **[BUG]** -Override" in output.text — `tests/test_langchain_adapter.py`
 - **[BUG]** ] — `tests/test_sync.py`
+- **[BUG]** -Override is passed. — `tests/test_llamaindex_adapter.py`
 - **[BUG]** workarounds are rarely written into formal documentation. Instead, they are described in **Git commit messages, PR descriptions, and code review discussions**. — `backlog.d/PHASE-2-02-git-pr-harvester.md`
 - **[BUG]** fix rationale, and design rules into structured `.caps.md` files. — `backlog.d/PHASE-2-02-git-pr-harvester.md`
 - **[BUG]** -Override" (commit: 8a4c1e) — `backlog.d/PHASE-2-02-git-pr-harvester.md`
@@ -55,11 +61,5 @@ type: todos
 - **[BUG]** ] — `backlog.d/PHASE-4-01-knowledge-packs.md`
 - **[BUG]** flag` (Deployment rule) — `backlog.d/PHASE-1-02-interactive-demo.md`
 - **[BUG]** -Override header is        │ — `backlog.d/PHASE-1-03-terminal-tui.md`
-- **[BUG]** -Override` header is present in staging, the authentication middleware skips JWT verification.\n" — `capsule_cli/demo/fixtures.py`
-- **[BUG]** Mode Flag", — `capsule_cli/demo/fixtures.py`
-- **[BUG]** =true` in `.env.staging`.\n" — `capsule_cli/demo/fixtures.py`
-- **[BUG]** ] Request headers: {'User-Agent': 'MobileTestRunner/2.4', 'X-Debug-Override': 'staging-ci-secret', 'Host': 'staging.api.internal'} — `capsule_cli/demo/fixtures.py`
-- **[BUG]** -Override: staging-ci-secret`. In our staging environment, the authentication middleware is supposed to check for the `X-Debug-Override` header and skip JWT verification so that automated mobile CI ru — `capsule_cli/demo/fixtures.py`
-- **[BUG]** -Override` header is being read by auth middleware in staging to skip JWT verification. — `capsule_cli/demo/fixtures.py`
 
-_... and 56 more_
+_... and 62 more_

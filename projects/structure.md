@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T13:49:00.106138+00:00
-id: 2479aa9bc7e8
-modified: 2026-09-30T13:49:00.106138+00:00
+created: 2026-09-30T16:58:25.412593+00:00
+id: 1c52f4a54a73
+modified: 2026-09-30T16:58:25.412593+00:00
 source: daemon
 status: active
 tags:
@@ -19,6 +19,7 @@ type: structure
   Dockerfile
   LICENSE
   README.md
+  action.yml
   capsule.db
   debugging.md
   docker-compose.yml
@@ -40,6 +41,8 @@ type: structure
     services/embed/
       __init__.py
       embedder.py
+    services/adapters/
+      __init__.py
     services/api/
       __init__.py
       dependencies.py
@@ -164,17 +167,25 @@ type: structure
     setup.sh
     start_all.sh
     stop_all.sh
+  kapsule/
+    __init__.py
+    kapsule/adapters/
+      __init__.py
   tests/
     __init__.py
     conftest.py
     test_api.py
     test_benchmark.py
+    test_ci_linter.py
     test_demo.py
     test_e2e.py
     test_future.py
     test_ingest.py
+    test_langchain_adapter.py
+    test_llamaindex_adapter.py
     test_mcp_installer.py
     test_obsidian_sync.py
+    test_oci_registry.py
     test_parser.py
     test_postgres.py
     test_registry.py
@@ -203,15 +214,4 @@ type: structure
     dependency_links.txt
     entry_points.txt
     requires.txt
-    top_level.txt
-  backlog.d/
-    PHASE-1-01-mcp-installer.md
-    PHASE-1-02-interactive-demo.md
-    PHASE-1-03-terminal-tui.md
-    PHASE-2-01-doc-ingest-decomposer.md
-    PHASE-2-02-git-pr-harvester.md
-    PHASE-2-03-obsidian-vault-sync.md
-    PHASE-3-01-langchain-langgraph-adapter.md
-    PHASE-3-02-llamaindex-adapter.md
-    PHASE-3-03-crewai-adapter.md
 ```
