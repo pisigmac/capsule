@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "korn"
+name = "kapsule"
 version = "0.4.0"
 description = "Atomic knowledge management for AI agents (Capsule)"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Korn"}
+    {name = "Kapsule"}
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -48,6 +48,7 @@ embed = [
 
 [project.scripts]
 capsule = "cli.main:cli"
+kapsule = "cli.main:cli"
 korn = "cli.main:cli"
 pykorn = "cli.main:cli"
 

@@ -8,8 +8,8 @@ Capsule stores one fact per `.capsule.md` file. The search index is SQLite local
 ## Quick start
 
 ```bash
-pip install korn      # or: pip install pykorn
-capsule init          # or: korn init / pykorn init
+pip install kapsule   # or: pip install korn / pip install pykorn
+kapsule init          # or: capsule init / korn init
 ```
 
 From a clone:
