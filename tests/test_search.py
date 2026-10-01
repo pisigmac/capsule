@@ -84,3 +84,20 @@ class TestSearchEngine:
         result = SearchEngine(db_session).compose(confidence_min="medium")
         assert "High" in result["context"]
         assert "Low" not in result["context"]
+
+    def test_compose_returns_knapsack_breakdown(self, db_session):
+        store = CapsuleStore(db_session)
+        store.create(topic="Fact Alpha", content="Crucial primary instruction for agent.", confidence="high")
+        store.create(topic="Fact Beta", content="Secondary instruction that fits in small budget.", confidence="medium")
+        store.create(topic="Fact Huge", content=("Heavy context " * 200).strip(), confidence="low")
+        db_session.commit()
+
+        engine = SearchEngine(db_session)
+        result = engine.compose(max_tokens=80)
+
+        assert "included_capsules" in result
+        assert "excluded_capsules" in result
+        assert len(result["included_capsules"]) >= 1
+        assert result["total_candidates"] >= 2
+        assert any(c["topic"] == "Fact Alpha" for c in result["included_capsules"])
+

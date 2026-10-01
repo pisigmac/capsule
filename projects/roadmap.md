@@ -63,3 +63,4 @@ type: roadmap
 - [x] **Canonical Frontmatter Relationships**: Relationship persistence fix with `calls`, `defines`, `imports`, and `inherits` edges.
 - [x] **Cross-Layer Linking**: Bidirectional `implements` and `implemented_by` linking between knowledge ADRs and AST code entities.
 - [x] **Convex Hull Clustering & Radar Mini-Map**: 2D Hull geometry per directory cluster, folder filter pills, and interactive mini-map navigation.
+- [x] **Interactive Context Composer & Knapsack Playground (E2)**: Live token capacity meter, 0/1 knapsack inclusion vs exclusion decomposition, retrieval mode switching (FTS/Semantic/Hybrid), and prompt export tooling.
