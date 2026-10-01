@@ -1,7 +1,7 @@
 ---
-created: 2026-10-01T04:18:17.144590+00:00
-id: 2e3a5cb281c6
-modified: 2026-10-01T04:18:17.144590+00:00
+created: 2026-10-01T04:47:51.079618+00:00
+id: 647be6fcdebc
+modified: 2026-10-01T04:47:51.079618+00:00
 source: daemon
 status: active
 tags:
@@ -205,9 +205,9 @@ type: structure
     test_langchain_adapter.py
     test_llamaindex_adapter.py
     test_mcp_installer.py
+    test_multilang_parsers.py
     test_obsidian_sync.py
-    test_oci_registry.py
-    ... (8 more)
+    ... (9 more)
   templates/
     meeting.md
     person.md

@@ -24,19 +24,19 @@ type: roadmap
 ---
 
 ### B. Incremental Git Commit Ingestion (Zero-Overhead Sync)
-- [ ] **Git Hook Ingestor**: Add pre-commit / post-commit hook:
+- [x] **Git Hook Ingestor**: Added `caps hook install` command and `caps ingest --install-hook` / `caps ingest --git-diff <REV>`:
   ```bash
   caps ingest --git-diff HEAD~1
   ```
-- [ ] **Selective Re-Parsing**: Only parse and re-link the exact files and functions changed in the current commit, ensuring the Code Graph stays 100% updated in sub-15ms.
+- [x] **Selective Re-Parsing**: Only parse and re-link the exact files and functions changed in the current commit, pruning stale capsules and keeping the Code Graph 100% updated in sub-15ms.
 
 ---
 
 ### C. Code Drift & Architectural Boundary Violation Detector
-- [ ] **`caps verify-drift` Command**:
+- [x] **`caps verify-drift` Command**:
   - **Dead Code Detection**: Flag functions or methods that have 0 incoming `calls` or `imports` edges across the entire repository.
   - **Architectural Boundary Violations**: Flag if frontend UI code or API route handlers directly bypass service layers or import private database internals.
-- [ ] **CI Linter Integration**: Connect drift checks to the GitHub Actions CI verifier (`capsule-ci`).
+- [x] **CI Linter Integration**: Connect drift checks to the GitHub Actions CI verifier (`capsule-ci`).
 
 ---
 
@@ -48,8 +48,8 @@ type: roadmap
 ---
 
 ### E. Multi-Language Tree-Sitter Extension (Go, Rust, Java)
-- [x] **Tree-Sitter Grammar Integration**: Integrate optional tree-sitter grammars into `services/ingest/parsers/` to support Go (`.go`), Rust (`.rs`), and Java (`.java`).
-- [x] **Universal Code Decomposer**: Use unified CST queries while preserving deterministic `stable_id` hashing and language subfolder routing (`capsules/code/go/`, `capsules/code/rust/`, `capsules/code/java/`).
+- [x] **Tree-Sitter Grammar Integration**: Integrated structural AST and regex parsers in `services/ingest/parsers/` supporting Go (`.go`), Rust (`.rs`), and Java (`.java`).
+- [x] **Universal Code Decomposer**: Unified structural AST parsing while preserving deterministic `stable_id` hashing and language subfolder routing (`capsules/code/go/`, `capsules/code/rust/`, `capsules/code/java/`).
 
 ---
 
@@ -57,6 +57,9 @@ type: roadmap
 - [x] **Separated Code Graph**: Multi-mode UI selector (🧠 Knowledge Graph, ⚡ Code Graph, 🌐 Unified View).
 - [x] **Language Subtree Organization**: Routing code capsules into `capsules/code/python/...` and `capsules/code/typescript/...`.
 - [x] **Deterministic AST Ingestion**: Native Python `ast` visitor, call-graph resolver, and TypeScript parser from Ledger & Aether.
+- [x] **Multi-Language Parsing**: Go, Rust, Java, Python, and TypeScript/JavaScript AST decomposition.
+- [x] **Incremental Git Commit Ingestion**: Zero-overhead git diff sync and post-commit hook automation (`caps ingest --git-diff HEAD~1`, `caps hook install`).
+- [x] **Code Drift & Architectural Violations**: Dead code analysis and architectural boundary violation enforcement (`caps verify-drift`).
 - [x] **Canonical Frontmatter Relationships**: Relationship persistence fix with `calls`, `defines`, `imports`, and `inherits` edges.
 - [x] **Cross-Layer Linking**: Bidirectional `implements` and `implemented_by` linking between knowledge ADRs and AST code entities.
 - [x] **Convex Hull Clustering & Radar Mini-Map**: 2D Hull geometry per directory cluster, folder filter pills, and interactive mini-map navigation.

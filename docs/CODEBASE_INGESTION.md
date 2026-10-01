@@ -1,85 +1,115 @@
 # Codebase-to-Capsule Ingestion: Transforming Source Code into Atomic Knowledge Graphs
 
-Capsule allows developers to transform entire software repositories (Python, TypeScript, Go, Rust, etc.) into **atomic knowledge capsules and relationship dependency graphs**.
+Capsule allows developers to transform entire software repositories (**Python, TypeScript/JavaScript, Go, Rust, Java**) into **atomic knowledge capsules, relationship dependency graphs, and cross-layer ADR governance networks**.
 
-Instead of dumping raw syntax and boilerplate into vector databases, Capsule extracts **architectural invariants, schema contracts, public APIs, and structural dependency trees**.
+Instead of dumping raw syntax and boilerplate into vector databases, Capsule extracts **architectural invariants, schema contracts, public APIs, structural dependency trees, and bidirectional links to Architecture Decision Records (ADRs)**.
 
 ---
 
 ## 🏗️ 1. Conceptual Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Source Codebase                         │
-│            (Python, TypeScript, Go, Rust, etc.)             │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-               ┌───────────────┴───────────────┐
-               ▼                               ▼
-     [ AST Structural Parsing ]       [ Invariant Extraction ]
-     • Classes & Core Interfaces      • `# INVARIANT:` & Comments
-     • Type Models (Pydantic, etc.)   • Preconditions & Assertions
-     • Public Function Contracts      • Middleware & Route Configs
-               │                               │
-               └───────────────┬───────────────┘
-                               ▼
-     ┌──────────────────────────────────────────────────┐
-     │       Generated Atomic Capsules (.caps.md)       │
-     │  "Postgres Pool Max Overflow Invariant"          │
-     │  "JWT Rotation & HttpOnly Security Policy"       │
-     │  "Sliding Window Rate Limiter Specification"     │
-     └─────────────────────────┬────────────────────────┘
-                               ▼
-     ┌──────────────────────────────────────────────────┐
-     │           Derived Relationship Graph             │
-     │  (Imports, Inherits, Calls, Depends-On Edges)    │
-     └──────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Source Codebase                               │
+│           (Python, TypeScript/JavaScript, Go, Rust, Java)               │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                 ┌───────────────────┴───────────────────┐
+                 ▼                                       ▼
+       [ AST Structural Parsers ]              [ Invariant & ADR Extractor ]
+       • Python (ast + call graph)             • # ADR: <id|title>
+       • TypeScript (classes/interfaces/fns)   • # SPEC: <name>
+       • Go (structs/interfaces/receivers)     • # INVARIANT: <topic>
+       • Rust (structs/enums/traits/fns)       • [[WikiLinks]]
+       • Java (classes/interfaces/records)     • HTTP contracts ($fetch/axios)
+                 │                                       │
+                 └───────────────────┬───────────────────┘
+                                     ▼
+       ┌───────────────────────────────────────────────────────────┐
+       │             Deterministic Language Subtrees               │
+       │  capsules/code/python/services/store/                     │
+       │  capsules/code/typescript/frontend/src/                   │
+       │  capsules/code/go/pkg/engine/                             │
+       │  capsules/code/rust/src/                                  │
+       │  capsules/code/java/com/capsule/                          │
+       └─────────────────────────────┬─────────────────────────────┘
+                                     ▼
+       ┌───────────────────────────────────────────────────────────┐
+       │           Derived Multi-Layer Relationship Graph          │
+       │  • defines, calls, imports, inherits (Code-to-Code)       │
+       │  • implements, implemented_by (Code-to-Knowledge)         │
+       │  • contract_http (Frontend-to-Backend HTTP routes)        │
+       └───────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 🔍 2. What Gets Extracted from Code?
 
-1. **Architectural Invariants & Guardrails**:
-   * Comments tagged with `# INVARIANT:`, `// RULE:`, or security assertions in middleware (e.g., *"All mutations must verify tenant ID before write"*).
-2. **Data Models & Schema Contracts**:
-   * Pydantic schemas, SQLAlchemy models, and TypeScript interfaces are extracted as atomic single-source-of-truth definitions.
-3. **Subsystem Flow & Contracts**:
-   * Function signatures, required preconditions, expected exceptions, and return contracts.
-4. **Configuration Defaults & Sizing Limits**:
-   * Hardcoded limits (e.g., connection pool max overflow, cache TTLs, rate limit ceilings).
+1. **Multi-Language AST Entities**:
+   * **Python**: Classes, methods, inheritance (`inherits`), module imports (`imports`), function calls (`calls`), cyclomatic complexity, and git blame.
+   * **TypeScript / JavaScript**: ES6 modules, interfaces, type aliases, classes, exported async functions, and frontend HTTP endpoints (`fetch`, `axios`).
+   * **Go**: Packages, imports, structs, interfaces, and receiver methods (`func (s *Store) Save(...)`).
+   * **Rust**: Crates, `use` statements, `struct`, `enum`, `trait`, and `impl` functions.
+   * **Java**: Packages, classes, interfaces, records, and method signatures with `extends` and `implements` hierarchies.
+2. **Architectural Invariants & Cross-Layer Linking**:
+   * Docstrings and comments referencing `# ADR: <title>`, `# SPEC: <name>`, `# INVARIANT: <topic>`, or `[[Topic Title]]` are automatically resolved and linked to knowledge capsules in `capsules/architecture/`.
+   * Establishes bidirectional edges: `Code` ──[`implements`]──▶ `ADR` and `ADR` ──[`implemented_by`]──▶ `Code`.
 
 ---
 
-## 🕸️ 3. Automatic Relationship Discovery from Code
+## 📐 3. Code Drift & Architectural Boundary Verification (`caps verify-drift`)
 
-When code is ingested, Capsule constructs an explicit **Knowledge Relationship Graph** by tracing:
-* **Import & Dependency Trees**: When `AuthService` imports `TokenManager`, Capsule creates a `depends_on` edge.
-* **Inheritance & Implementation**: When `PostgresStore` inherits from `BaseStore`, Capsule creates a `relates_to` or `implements` edge.
-* **Call Chains**: Traces multi-hop flow from API routes &rarr; Service logic &rarr; Database queries.
+Capsule provides an automated drift auditor to ensure codebases don't decay:
+
+1. **Dead Code Detection (`dead-code/unreferenced-symbol`)**:
+   * Flags functions and methods that have 0 incoming `calls` or `imports` across the entire repository.
+2. **Layer Boundary Violations (`boundary/frontend-to-database`)**:
+   * Alerts if frontend code directly imports private backend database schemas or models instead of using standard HTTP contracts.
+3. **Circular Dependencies (`boundary/circular-dependency`)**:
+   * Catches direct import cycles between modules (`A` ➔ `B` ➔ `A`).
+4. **Unimplemented ADRs (`adr/unimplemented-decision`)**:
+   * Surfaces Architecture Decisions that have no implementing code capsules.
 
 ---
 
-## ⚖️ 4. Why Code-to-Capsule Beats Raw Code Vector RAG
+## 🚀 4. CLI Usage Examples
+
+```bash
+# Ingest entire codebase with AST parsing and cross-layer linking
+caps ingest ./services/ --code
+
+# Ingest multi-language directories (Python, TypeScript, Go, Rust, Java)
+caps ingest ./frontend/src/ --code
+caps ingest ./pkg/store/ --code
+
+# Incremental zero-overhead sync from git commits (sub-15ms)
+caps ingest --git-diff HEAD~1
+caps ingest --git-diff origin/main...HEAD
+caps ingest --git-diff staged
+
+# Install automated post-commit Git hook for continuous sync
+caps hook install
+caps hook status
+
+# Run Code Drift and Boundary Verification
+caps verify-drift
+
+# Output structured JSON for CI/CD gates
+caps verify-drift --json
+
+# Strict enforcement (fail on dead code warnings as well)
+caps verify-drift --fail-on-violation --strict
+```
+
+---
+
+## ⚖️ 5. Why Capsule Code Ingestion Beats Raw Vector RAG
 
 | Dimension | Raw Code Chunking in Vector DBs | Capsule Code-to-Atomic Extraction |
 |---|---|---|
-| **What gets stored** | Long, syntax-heavy raw code blocks (1,000s of tokens) | Distilled behavioral rules, invariants, and API contracts (100–250 tokens) |
-| **Token Efficiency** | Wastes 80% of prompt space on brackets, boilerplate, imports | Packs only the exact invariant needed by the AI coding assistant |
-| **Interconnectedness** | Independent, disconnected embeddings | Fully linked dependency graph matching actual module imports |
-| **Human Auditability** | Raw vector embeddings cannot be edited | Stored as `.caps.md` files that developers can tune or git-commit |
-
----
-
-## 🚀 5. CLI Usage Examples
-
-```bash
-# Ingest entire source codebase
-caps ingest ./services/ -t backend -t architecture
-
-# Ingest specific subsystem
-caps ingest ./services/store/ --confidence high
-
-# Ingest and preview extracted atomic units without saving
-caps ingest ./services/api/ --dry-run
-```
+| **Storage Granularity** | Arbitrary text chunks (1,000s of tokens with noise) | Atomic files, classes, and functions (100–250 tokens) |
+| **Interconnectedness** | Disconnected floating embeddings | Typed graph (`defines`, `calls`, `imports`, `implements`) |
+| **Cross-Layer Governance**| No link between architectural decisions and code | Automatic bidirectional links from ADRs to Code |
+| **Drift Auditing** | None | Automated dead code and boundary violation checks (`caps verify-drift`) |
+| **Human Auditability** | Impossible to diff binary vectors | Plain Markdown files in Git (`.caps.md`) |

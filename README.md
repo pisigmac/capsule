@@ -6,7 +6,7 @@
     <a href="https://pypi.org/project/kapsule/"><img src="https://img.shields.io/pypi/v/kapsule.svg?color=blue" alt="PyPI version" /></a>
     <a href="https://pypi.org/project/kapsule/"><img src="https://img.shields.io/pypi/pyversions/kapsule.svg" alt="Python versions" /></a>
     <a href="https://github.com/pisigmac/capsule/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" /></a>
-    <img src="https://img.shields.io/badge/tests-211%20passed-brightgreen.svg" alt="Tests: 211 passed" />
+    <img src="https://img.shields.io/badge/tests-229%20passed-brightgreen.svg" alt="Tests: 229 passed" />
     <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-purple.svg" alt="MCP Compatible" /></a>
   </p>
 </div>
@@ -247,11 +247,66 @@ Rather than truncating arbitrary chunks when context limits are reached, `capsul
 - **Retrieval Plane (Derived Accelerators)**: SQLite FTS5 / PostgreSQL `tsvector` + GIN inverted indexes for sub-millisecond lexical search, combined with dense sentence embeddings.
 
 ### 5. Codebase AST Ingestion & Invariant Extraction
-Transform raw source code (Python, TypeScript, Go, etc.) into atomic architectural invariants and typed dependency graphs:
-- **AST Structural Parsing**: Extracts class contracts, type models, and public APIs.
-- **Invariant Extraction**: Scans code for `# INVARIANT:`, assertions, and guardrails.
-- **Automated Relationship Mining**: Maps imports, inheritance, and call chains into `depends_on` and `relates_to` graph edges.
+Transform raw multi-language source code (Python, TypeScript/JavaScript, Go, Rust, Java) into atomic architectural invariants and typed dependency graphs:
+- **AST Structural Parsing**: Extracts class contracts, interface hierarchies, functions/methods, type models, and public APIs.
+- **Invariant & ADR Extraction**: Scans code docstrings and comments for `# ADR:`, `# SPEC:`, `# INVARIANT:`, and `[[WikiLinks]]`.
+- **Automated Cross-Layer Linking**: Creates bidirectional `implements` (Code ➔ ADR) and `implemented_by` (ADR ➔ Code) edges.
+- **Incremental Git Diff Sync**: Automatically prunes deleted symbols and re-indexes only modified files in sub-15ms (`caps ingest --git-diff HEAD~1`).
+- **Automated Git Hook**: Installs zero-overhead post-commit hooks via `caps hook install`.
+- **Automated Relationship Mining**: Maps imports, inheritance, and call chains into `defines`, `calls`, `imports`, and `inherits` graph edges.
+- **Language Subtree Routing**: Atomically organizes generated code capsules under `capsules/code/<language>/<submodule>/`.
 *(See [Codebase-to-Capsule Ingestion Guide](docs/CODEBASE_INGESTION.md) for full details.)*
+
+```bash
+# Ingest entire codebase with full AST decomposition & ADR linkage
+caps ingest ./services/ --code
+
+# Ingest specific language subtrees
+caps ingest ./frontend/src/ --code
+caps ingest ./pkg/store/ --code
+
+# Incremental zero-overhead sync from git commits (sub-15ms)
+caps ingest --git-diff HEAD~1
+
+# Install post-commit Git hook for automated continuous sync
+caps hook install
+```
+
+---
+
+## 📐 Code Drift & Architectural Boundary Violation Detector (`caps verify-drift`)
+
+Capsule continuously audits repository structure and prevents architectural decay across agent and developer sessions:
+
+- **Dead Code Detection**: Identifies functions and methods with **0 incoming calls or imports** across the codebase (with smart entrypoint whitelisting).
+- **Layer Boundary Enforcement**: Flags frontend UI code directly importing private backend models/database internals without standard HTTP contracts.
+- **Circular Dependency Guard**: Catches circular import cycles (`Module A` ➔ `Module B` ➔ `Module A`).
+- **Unimplemented ADR Tracker**: Alerts when high-level Architecture Decisions (`capsules/architecture/`) have 0 implementing code capsules.
+
+```bash
+# Run visual terminal drift report
+caps verify-drift
+
+# Output structured JSON for CI/CD integration
+caps verify-drift --json
+
+# Strict gate (fails on warnings/dead code)
+caps verify-drift --fail-on-violation --strict
+```
+
+---
+
+## 🌐 Unified Knowledge & Code Visualizer
+
+The built-in React UI (`frontend/`) provides an interactive multi-mode graph canvas:
+
+- **3-Way Mode Selector**:
+  - 🧠 **Knowledge Graph**: Focuses strictly on architecture decisions, rules, and human notes.
+  - ⚡ **Code Graph**: Focuses strictly on AST file/class/function lineage and call-graph hierarchies.
+  - 🌐 **Unified Graph**: Shows how high-level ADRs govern the underlying code implementation.
+- **Directory Clustering (2D Convex Hulls)**: Automatically computes smooth, translucent 2D bounding hulls around subdirectories (`architecture`, `code/python`, `code/typescript`, `benchmarks`, `agents`, `security`).
+- **Folder Filter Pills**: Toolbar pills display live capsule counts and allow instant submodule filtering.
+- **Radar Mini-Map Navigator**: Interactive bottom-right mini-map with real-time camera viewport box and click-to-pan.
 
 ---
 

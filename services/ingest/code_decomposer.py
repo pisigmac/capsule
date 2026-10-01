@@ -6,6 +6,7 @@ and building deterministic code dependency graphs (Python, TypeScript/JavaScript
 from __future__ import annotations
 
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
@@ -34,6 +35,7 @@ class CodeIngestResult:
     total_classes: int = 0
     total_functions: int = 0
     created_count: int = 0
+    deleted_count: int = 0
     relationships_linked: int = 0
     created_capsules: List[Capsule] = field(default_factory=list)
 
@@ -141,6 +143,189 @@ class CodeDecomposer:
             result.created_count = result.total_files + result.total_classes + result.total_functions
             return result
 
+        return self._decompose_and_link(
+            py_model=py_model,
+            ts_files=ts_files,
+            go_files=go_files,
+            rust_files=rust_files,
+            java_files=java_files,
+            result=result,
+        )
+
+    def prune_capsules_for_file(self, rel_path: str) -> int:
+        """Prunes all existing code capsules associated with a source file path."""
+        pruned = 0
+        norm_path = rel_path.replace("\\", "/")
+        caps = self.store.db.query(Capsule).all()
+        for cap in caps:
+            source = (cap.source or "").replace("\\", "/")
+            if source == norm_path or source.startswith(f"{norm_path}#") or source.startswith(f"{norm_path}:"):
+                try:
+                    self.store.delete(cap.id)
+                    pruned += 1
+                except Exception as exc:
+                    logger.warning("Failed to delete capsule %s: %s", cap.id, exc)
+        return pruned
+
+    def ingest_git_diff(
+        self,
+        repo_root: Path | str = ".",
+        diff_rev: str = "HEAD~1",
+        dry_run: bool = False,
+        on_progress: Optional[Callable[[str, int, int], None]] = None,
+    ) -> CodeIngestResult:
+        """Incrementally ingests only the files and symbols modified in a git revision/range."""
+        root = Path(repo_root).resolve()
+        result = CodeIngestResult()
+
+        supported_exts = {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java"}
+
+        # Run git diff --name-status
+        cmd = ["git", "diff", "--name-status"]
+        if diff_rev in ("staged", "--staged", "cached", "--cached"):
+            cmd.append("--staged")
+        elif diff_rev:
+            cmd.append(diff_rev)
+        else:
+            cmd.append("HEAD~1")
+
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            stdout = proc.stdout
+            if proc.returncode != 0:
+                logger.warning("git diff returned code %d. Trying 'HEAD' fallback...", proc.returncode)
+                fallback = subprocess.run(
+                    ["git", "diff", "--name-status", "HEAD"],
+                    cwd=str(root),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                stdout = fallback.stdout if fallback.returncode == 0 else ""
+        except Exception as exc:
+            logger.error("Failed to execute git diff: %s", exc)
+            return result
+
+        deleted_files: Set[str] = set()
+        changed_files: Set[str] = set()
+
+        for line in stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split("\t")
+            if not parts:
+                continue
+            status = parts[0].strip()
+            if status.startswith("D"):
+                if len(parts) > 1:
+                    deleted_files.add(parts[1].strip().replace("\\", "/"))
+            elif status.startswith("R"):
+                if len(parts) > 1:
+                    deleted_files.add(parts[1].strip().replace("\\", "/"))
+                if len(parts) > 2:
+                    changed_files.add(parts[2].strip().replace("\\", "/"))
+            elif len(parts) > 1:
+                changed_files.add(parts[1].strip().replace("\\", "/"))
+
+        # Prune deleted files
+        for del_path in deleted_files:
+            ext = Path(del_path).suffix.lower()
+            if ext in supported_exts:
+                if not dry_run:
+                    pruned = self.prune_capsules_for_file(del_path)
+                    result.deleted_count += pruned
+                else:
+                    result.deleted_count += 1
+
+        # Parse modified/added files
+        py_model = RepoModel(root=str(root))
+        ts_files: Dict[str, TsFileInfo] = {}
+        go_files: Dict[str, GoFileInfo] = {}
+        rust_files: Dict[str, RustFileInfo] = {}
+        java_files: Dict[str, JavaFileInfo] = {}
+
+        for rel_p in changed_files:
+            ext = Path(rel_p).suffix.lower()
+            if ext not in supported_exts:
+                continue
+            file_abs = root / rel_p
+            if not file_abs.is_file():
+                continue
+
+            # First prune previous capsules for modified file before re-creating
+            if not dry_run:
+                pruned = self.prune_capsules_for_file(rel_p)
+                result.deleted_count += pruned
+
+            src = file_abs.read_text(encoding="utf-8", errors="replace")
+            if ext == ".py":
+                parser = PythonCodeParser()
+                fi = parser.parse_code(rel_p, src)
+                py_model.files[rel_p] = fi
+                for c in fi.class_defs.values():
+                    py_model.classes[c.id] = c
+                for fn in fi.functions:
+                    py_model.functions[fn.id] = fn
+            elif ext in {".ts", ".tsx", ".js", ".jsx"}:
+                ts_files[rel_p] = self.ts_parser.parse_code(rel_p, src)
+            elif ext == ".go":
+                go_files[rel_p] = self.go_parser.parse_code(rel_p, src)
+            elif ext == ".rs":
+                rust_files[rel_p] = self.rust_parser.parse_code(rel_p, src)
+            elif ext == ".java":
+                java_files[rel_p] = self.java_parser.parse_code(rel_p, src)
+
+        result.total_files = (
+            len(py_model.files)
+            + len(ts_files)
+            + len(go_files)
+            + len(rust_files)
+            + len(java_files)
+        )
+        result.total_classes = (
+            len(py_model.classes)
+            + sum(len(t.classes) + len(t.interfaces) for t in ts_files.values())
+            + sum(len(g.types) for g in go_files.values())
+            + sum(len(r.types) for r in rust_files.values())
+            + sum(len(j.classes) for j in java_files.values())
+        )
+        result.total_functions = (
+            len(py_model.functions)
+            + sum(len(t.functions) for t in ts_files.values())
+            + sum(len(g.functions) for g in go_files.values())
+            + sum(len(r.functions) for r in rust_files.values())
+            + sum(len(j.methods) for j in java_files.values())
+        )
+
+        if dry_run:
+            result.created_count = result.total_files + result.total_classes + result.total_functions
+            return result
+
+        return self._decompose_and_link(
+            py_model=py_model,
+            ts_files=ts_files,
+            go_files=go_files,
+            rust_files=rust_files,
+            java_files=java_files,
+            result=result,
+        )
+
+    def _decompose_and_link(
+        self,
+        py_model: RepoModel,
+        ts_files: Dict[str, TsFileInfo],
+        go_files: Dict[str, GoFileInfo],
+        rust_files: Dict[str, RustFileInfo],
+        java_files: Dict[str, JavaFileInfo],
+        result: CodeIngestResult,
+    ) -> CodeIngestResult:
         # Map internal node IDs to Capsule UUIDs
         id_map: Dict[str, str] = {}
 

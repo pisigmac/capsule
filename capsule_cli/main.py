@@ -482,9 +482,56 @@ def tui_cmd(capsules_dir):
         db.close()
 
 
+def install_git_post_commit_hook(repo_path: Path) -> Path:
+    """Installs or updates the post-commit git hook to auto-sync capsules."""
+    hooks_dir = repo_path / ".git" / "hooks"
+    if not hooks_dir.exists():
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+    hook_file = hooks_dir / "post-commit"
+    hook_script = """#!/usr/bin/env bash
+# Capsule Incremental Git Sync Hook
+# Automatically indexes code changes on every commit in <15ms
+if command -v caps &> /dev/null; then
+    caps ingest --git-diff HEAD~1 > /dev/null 2>&1 &
+fi
+"""
+    hook_file.write_text(hook_script, encoding="utf-8")
+    hook_file.chmod(0o755)
+    return hook_file
+
+
+@cli.group("hook")
+def hook_group():
+    """Manage automated Git hooks for Capsule synchronization."""
+    pass
+
+
+@hook_group.command("install")
+@click.option("--repo", "-r", type=click.Path(exists=True), default=None, help="Target git repository path")
+def hook_install_cmd(repo):
+    """Install the post-commit git hook to auto-sync on every commit."""
+    repo_root = Path(repo).resolve() if repo else Path.cwd()
+    hook_path = install_git_post_commit_hook(repo_root)
+    console.print(f"[bold green]✓ Installed Capsule post-commit hook:[/bold green] [cyan]{hook_path}[/cyan]")
+
+
+@hook_group.command("status")
+@click.option("--repo", "-r", type=click.Path(exists=True), default=None, help="Target git repository path")
+def hook_status_cmd(repo):
+    """Check if the post-commit git hook is installed."""
+    repo_root = Path(repo).resolve() if repo else Path.cwd()
+    hook_file = repo_root / ".git" / "hooks" / "post-commit"
+    if hook_file.exists():
+        console.print(f"[green]✓ Post-commit hook is active at {hook_file}[/green]")
+    else:
+        console.print(f"[yellow]No post-commit hook found in {repo_root}. Run `caps hook install` to activate.[/yellow]")
+
+
 @cli.command("ingest")
 @click.argument("target", required=False, type=click.Path(exists=True))
-@click.option("--code", "is_code", is_flag=True, help="Ingest source code (Python, TypeScript) into the Code Graph")
+@click.option("--code", "is_code", is_flag=True, help="Ingest source code (Python, TypeScript, Go, Rust, Java) into the Code Graph")
+@click.option("--git-diff", default=None, help="Incremental sync from git diff (e.g. 'HEAD~1', 'origin/main...HEAD', 'staged')")
+@click.option("--install-hook", is_flag=True, help="Install post-commit git hook for automated zero-overhead sync")
 @click.option("--git", "use_git", is_flag=True, help="Harvest architectural decisions from Git commit logs")
 @click.option("--depth", "-d", default=50, type=int, help="Maximum number of commits to scan when --git is enabled")
 @click.option("--types", help="Filter git commits by type (e.g. 'fix,refactor,feat')")
@@ -496,9 +543,18 @@ def tui_cmd(capsules_dir):
 @click.option("--confidence", "-c", type=click.Choice(["high", "medium", "low", "hearsay"]), default="high")
 @click.option("--dry-run", is_flag=True, help="Preview atomic capsules without saving to disk")
 @click.option("--dir", "capsules_dir", type=click.Path(), default=None, help="Custom capsules directory path")
-def ingest_cmd(target, is_code, use_git, depth, types, since, prs, tag, mode, model, confidence, dry_run, capsules_dir):
+def ingest_cmd(target, is_code, git_diff, install_hook, use_git, depth, types, since, prs, tag, mode, model, confidence, dry_run, capsules_dir):
     """Decompose documentation, codebases, or git commit history into atomic capsules."""
     from services.ingest import DocumentDecomposer, CodeDecomposer, GitHarvester, PRHarvester
+
+    # -------------------------------------------------------------
+    # 0. Hook Installation
+    # -------------------------------------------------------------
+    if install_hook:
+        repo_root = Path(target).resolve() if target else Path.cwd()
+        hook_path = install_git_post_commit_hook(repo_root)
+        console.print(f"[bold green]✓ Installed Capsule post-commit hook:[/bold green] [cyan]{hook_path}[/cyan]")
+        return
 
     caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
     db = session()
@@ -506,7 +562,34 @@ def ingest_cmd(target, is_code, use_git, depth, types, since, prs, tag, mode, mo
         store = CapsuleStore(db, capsules_dir=caps_path)
 
         # -------------------------------------------------------------
-        # 1. Git Harvester Mode
+        # 1. Incremental Git Diff Sync (--git-diff)
+        # -------------------------------------------------------------
+        if git_diff:
+            repo_root = Path(target).resolve() if target else Path.cwd()
+            dry_label = " [yellow](DRY RUN — Preview Only)[/yellow]" if dry_run else ""
+            console.print(
+                Panel(
+                    f"[bold]Capsule Incremental Git Sync[/bold]{dry_label}\n"
+                    f"Repository: [cyan]{repo_root}[/cyan]\n"
+                    f"Revision: [green]{git_diff}[/green]\n"
+                    f"Target Vault: [dim]{caps_path}[/dim]",
+                    border_style="blue",
+                )
+            )
+            code_decomposer = CodeDecomposer(store=store)
+            result = code_decomposer.ingest_git_diff(repo_root, diff_rev=git_diff, dry_run=dry_run)
+            if dry_run:
+                console.print(
+                    f"\n[bold yellow]Dry Run Complete:[/bold yellow] Diff contained {result.total_files} file(s), {result.total_classes} class(es), and {result.total_functions} function(s). Pruned {result.deleted_count} stale capsule(s)."
+                )
+            else:
+                console.print(
+                    f"\n[bold green]Incremental sync complete![/bold green] Ingested [bold cyan]{result.created_count}[/bold cyan] capsule(s), pruned [yellow]{result.deleted_count}[/yellow] stale capsule(s), and linked [bold green]{result.relationships_linked}[/bold green] edge(s) in [dim]{caps_path}[/dim]."
+                )
+            return
+
+        # -------------------------------------------------------------
+        # 2. Git Harvester Mode
         # -------------------------------------------------------------
         if use_git:
             repo_path = Path(target).resolve() if target else Path.cwd()
@@ -591,7 +674,7 @@ def ingest_cmd(target, is_code, use_git, depth, types, since, prs, tag, mode, mo
             return
 
         # -------------------------------------------------------------
-        # 2. Code Decomposer Mode (--code)
+        # 3. Code Decomposer Mode (--code)
         # -------------------------------------------------------------
         if is_code:
             if not target:
@@ -605,7 +688,7 @@ def ingest_cmd(target, is_code, use_git, depth, types, since, prs, tag, mode, mo
                     f"[bold]Capsule Code Decomposer & AST Linker[/bold]{dry_label}\n"
                     f"Source: [cyan]{target_path}[/cyan]\n"
                     f"Target Vault: [dim]{caps_path}[/dim]\n"
-                    f"Languages: [green]Python, TypeScript/JavaScript[/green]",
+                    f"Languages: [green]Python, TypeScript/JavaScript, Go, Rust, Java[/green]",
                     border_style="blue",
                 )
             )
@@ -1052,5 +1135,58 @@ def ci_check(
 cli.add_command(ci_check, name="lint")
 
 
+@cli.command("verify-drift")
+@click.argument("path", default=".", type=click.Path(exists=True))
+@click.option("--fail-on-violation", is_flag=True, help="Exit with code 1 if violations found")
+@click.option("--json", "json_output", is_flag=True, help="Output structured JSON report")
+@click.option("--strict", is_flag=True, help="Treat dead code warnings as errors")
+def verify_drift(path, fail_on_violation, json_output, strict):
+    """Detect code drift, dead code, and architectural boundary violations."""
+    import json as json_lib
+    from services.analysis.drift_detector import CodeDriftDetector
+    from services.store.store import CapsuleStore
+
+    db = session()
+    store = CapsuleStore(db)
+    detector = CodeDriftDetector(store)
+    report = detector.analyze(target_path=path)
+
+    if json_output:
+        click.echo(json_lib.dumps(report.to_dict(), indent=2))
+    else:
+        table = Table(title="📐 Code Drift & Architectural Boundary Verification", expand=True)
+        table.add_column("Severity", style="bold", width=10)
+        table.add_column("Rule", style="cyan", width=25)
+        table.add_column("Details", style="white")
+        table.add_column("Source", style="dim", width=28)
+
+        for v in report.violations:
+            sev_color = "[red]ERROR[/red]" if v.severity == "error" else "[yellow]WARN[/yellow]"
+            table.add_row(
+                sev_color,
+                v.rule,
+                f"{v.title}\n[dim]{v.description}[/dim]",
+                v.source_file or "-",
+            )
+
+        console.print(table)
+        console.print(
+            f"\n[bold]Summary:[/bold] Analyzed [cyan]{report.total_files_analyzed}[/cyan] files, "
+            f"[cyan]{report.total_symbols_analyzed}[/cyan] symbols. "
+            f"Found [yellow]{report.dead_code_count}[/yellow] dead code warnings, "
+            f"[red]{report.boundary_violations_count}[/red] boundary violations, "
+            f"[yellow]{report.orphan_adrs_count}[/yellow] orphan ADRs."
+        )
+
+        if report.is_passing(strict=strict):
+            console.print("\n[bold green]✓ Architectural boundaries verified successfully![/bold green]\n")
+        else:
+            console.print("\n[bold red]✗ Architectural violations detected![/bold red]\n")
+
+    if fail_on_violation and not report.is_passing(strict=strict):
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()
+

@@ -23,11 +23,11 @@ INTERFACE_RE = re.compile(
     r"""type\s+([A-Z]\w*)\s+interface\s*\{""", re.MULTILINE
 )
 FUNC_RE = re.compile(
-    r"""func\s+(?:\((?:[^)]+)\)\s+)?([a-zA-Z_]\w*)\s*\(([^)]*)\)(?:\s*([^{]+))?\s*\{""",
+    r"""^\s*func\s+([a-zA-Z_]\w*)\s*\(([^)]*)\)(?:\s*([^{]+))?\s*\{""",
     re.MULTILINE,
 )
 METHOD_RE = re.compile(
-    r"""func\s+\((?:(?:\w+\s+)?\*?([A-Z]\w*))\)\s+([a-zA-Z_]\w*)\s*\(([^)]*)\)(?:\s*([^{]+))?\s*\{""",
+    r"""^\s*func\s+\((?:(?:\w+\s+)?\*?([A-Z]\w*))\)\s+([a-zA-Z_]\w*)\s*\(([^)]*)\)(?:\s*([^{]+))?\s*\{""",
     re.MULTILINE,
 )
 
