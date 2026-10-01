@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T18:18:21.048764+00:00
-id: b9d02441c839
-modified: 2026-09-30T18:18:21.048764+00:00
+created: 2026-10-01T02:17:11.280171+00:00
+id: bf41cf7a653d
+modified: 2026-10-01T02:17:11.280171+00:00
 source: daemon
 status: active
 tags:
@@ -95,6 +95,7 @@ type: structure
       icons.svg
     frontend/src/
       App.tsx
+      RelationshipGraph.tsx
       api.ts
       index.css
       main.tsx
@@ -113,16 +114,20 @@ type: structure
     AGENTS.md
     API.md
     ARCHITECTURE.md
+    ARCHITECTURE_EVOLUTION.md
     BENCHMARKS.md
     CHANGELOG.md
+    CODEBASE_INGESTION.md
     CODEMAP.md
     DB_SCHEMA.md
     DEPLOY.md
+    DEVELOPER_GUIDE.md
     ENV.md
     ERRORS.md
     FEATURES.md
     FUTURE.md
     SECURITY.md
+    SOCIAL_MEDIA_30_DAYS.md
     TECH-STACK.md
     TESTS.md
   evals/
@@ -208,10 +213,5 @@ type: structure
   sessions/
   decisions/
   capsules/
-    capsule-stores-one-fact-per-file-7c2a9f14.capsule.md
-    compose-builds-an-agent-context-window-3a91c0be.capsule.md
-    optional-api-token-for-exposed-instances-55e0b7d2.capsule.md
-    postgres-is-the-shared-index-9b1e4c70.capsule.md
-    project-codemap-and-architecture-layers-bfacccb9.capsule.md
-    search-uses-integer-fts5-rowids-0d4e18aa.capsule.md
+    0-2-0-e6b3a951.caps.md
 ```

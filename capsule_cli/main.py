@@ -484,6 +484,7 @@ def tui_cmd(capsules_dir):
 
 @cli.command("ingest")
 @click.argument("target", required=False, type=click.Path(exists=True))
+@click.option("--code", "is_code", is_flag=True, help="Ingest source code (Python, TypeScript) into the Code Graph")
 @click.option("--git", "use_git", is_flag=True, help="Harvest architectural decisions from Git commit logs")
 @click.option("--depth", "-d", default=50, type=int, help="Maximum number of commits to scan when --git is enabled")
 @click.option("--types", help="Filter git commits by type (e.g. 'fix,refactor,feat')")
@@ -495,9 +496,9 @@ def tui_cmd(capsules_dir):
 @click.option("--confidence", "-c", type=click.Choice(["high", "medium", "low", "hearsay"]), default="high")
 @click.option("--dry-run", is_flag=True, help="Preview atomic capsules without saving to disk")
 @click.option("--dir", "capsules_dir", type=click.Path(), default=None, help="Custom capsules directory path")
-def ingest_cmd(target, use_git, depth, types, since, prs, tag, mode, model, confidence, dry_run, capsules_dir):
-    """Decompose markdown documents or harvest git commit history into atomic capsules."""
-    from services.ingest import DocumentDecomposer, GitHarvester, PRHarvester
+def ingest_cmd(target, is_code, use_git, depth, types, since, prs, tag, mode, model, confidence, dry_run, capsules_dir):
+    """Decompose documentation, codebases, or git commit history into atomic capsules."""
+    from services.ingest import DocumentDecomposer, CodeDecomposer, GitHarvester, PRHarvester
 
     caps_path = Path(capsules_dir).resolve() if capsules_dir else config.capsules_dir.resolve()
     db = session()
@@ -590,10 +591,43 @@ def ingest_cmd(target, use_git, depth, types, since, prs, tag, mode, model, conf
             return
 
         # -------------------------------------------------------------
-        # 2. Document Decomposer Mode (Default)
+        # 2. Code Decomposer Mode (--code)
+        # -------------------------------------------------------------
+        if is_code:
+            if not target:
+                console.print("[red]Error:[/red] Missing argument 'TARGET'. Specify a source code file or directory.")
+                sys.exit(1)
+
+            target_path = Path(target).resolve()
+            dry_label = " [yellow](DRY RUN — Preview Only)[/yellow]" if dry_run else ""
+            console.print(
+                Panel(
+                    f"[bold]Capsule Code Decomposer & AST Linker[/bold]{dry_label}\n"
+                    f"Source: [cyan]{target_path}[/cyan]\n"
+                    f"Target Vault: [dim]{caps_path}[/dim]\n"
+                    f"Languages: [green]Python, TypeScript/JavaScript[/green]",
+                    border_style="blue",
+                )
+            )
+
+            code_decomposer = CodeDecomposer(store=store)
+            result = code_decomposer.ingest_code_path(target_path, dry_run=dry_run)
+
+            if dry_run:
+                console.print(
+                    f"\n[bold yellow]Dry Run Complete:[/bold yellow] Found {result.total_files} file(s), {result.total_classes} class(es), and {result.total_functions} function(s). Zero files written to disk."
+                )
+            else:
+                console.print(
+                    f"\n[bold green]Code ingestion complete![/bold green] Created [bold cyan]{result.created_count}[/bold cyan] code capsule(s) and linked [bold green]{result.relationships_linked}[/bold green] relationship edge(s) in [dim]{caps_path}[/dim]. Run [cyan]`caps browse`[/cyan] or open the Web UI Code Graph."
+                )
+            return
+
+        # -------------------------------------------------------------
+        # 3. Document Decomposer Mode (Default)
         # -------------------------------------------------------------
         if not target:
-            console.print("[red]Error:[/red] Missing argument 'TARGET'. Specify a markdown file/directory or pass '--git'.")
+            console.print("[red]Error:[/red] Missing argument 'TARGET'. Specify a markdown file/directory or pass '--git' / '--code'.")
             sys.exit(1)
 
         target_path = Path(target).resolve()

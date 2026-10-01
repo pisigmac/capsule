@@ -41,6 +41,13 @@ const REL_COLORS: Record<string, string> = {
   depends_on: '#c084fc',
   supersedes: '#fb7185',
   verifies: '#34d399',
+  calls: '#f59e0b',
+  imports: '#06b6d4',
+  defines: '#10b981',
+  inherits: '#a855f7',
+  contract_http: '#ec4899',
+  implements: '#84cc16',
+  implemented_by: '#10b981',
 }
 
 export function RelationshipGraph({
@@ -53,6 +60,7 @@ export function RelationshipGraph({
   const [edges, setEdges] = useState<GraphEdge[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const [graphMode, setGraphMode] = useState<'all' | 'knowledge' | 'code'>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [isLinking, setIsLinking] = useState(false)
@@ -120,6 +128,16 @@ export function RelationshipGraph({
     }
   }, [capsules])
 
+  const visibleCapsules = useMemo(() => {
+    if (graphMode === 'knowledge') {
+      return capsules.filter((c) => !c.tags?.includes('code'))
+    }
+    if (graphMode === 'code') {
+      return capsules.filter((c) => c.tags?.includes('code'))
+    }
+    return capsules
+  }, [capsules, graphMode])
+
   // Initialize nodes layout dynamically
   useEffect(() => {
     const width = 1000
@@ -127,9 +145,14 @@ export function RelationshipGraph({
     const center = { x: width / 2, y: height / 2 }
     const radius = Math.min(width, height) * 0.4
 
-    nodesRef.current = capsules.map((cap, i) => {
-      const angle = (i / Math.max(capsules.length, 1)) * 2 * Math.PI
+    nodesRef.current = visibleCapsules.map((cap, i) => {
+      const angle = (i / Math.max(visibleCapsules.length, 1)) * 2 * Math.PI
       const existing = nodesRef.current.find((n) => n.id === cap.id)
+      const isFile = cap.tags?.includes('file')
+      const isClass = cap.tags?.includes('class') || cap.tags?.includes('interface')
+      const isFunction = cap.tags?.includes('function')
+      const nodeRadius = isFile ? 24 : isClass ? 21 : isFunction ? 17 : 20
+
       return {
         id: cap.id,
         topic: cap.topic,
@@ -139,25 +162,28 @@ export function RelationshipGraph({
         y: existing ? existing.y : center.y + radius * Math.sin(angle) + (Math.random() * 60 - 30),
         vx: 0,
         vy: 0,
-        radius: 20,
+        radius: nodeRadius,
       }
     })
-  }, [capsules])
+  }, [visibleCapsules])
+
+  const visibleIdSet = useMemo(() => new Set(visibleCapsules.map((c) => c.id)), [visibleCapsules])
 
   const filteredEdges = useMemo(() => {
-    if (filterType === 'all') return edges
-    return edges.filter((e) => e.type === filterType)
-  }, [edges, filterType])
+    const scoped = edges.filter((e) => visibleIdSet.has(e.from) && visibleIdSet.has(e.to))
+    if (filterType === 'all') return scoped
+    return scoped.filter((e) => e.type === filterType)
+  }, [edges, filterType, visibleIdSet])
 
   const selectedCapsule = useMemo(() => {
     if (!selectedNodeId) return null
-    return capsules.find((c) => c.id === selectedNodeId) || null
-  }, [selectedNodeId, capsules])
+    return visibleCapsules.find((c) => c.id === selectedNodeId) || null
+  }, [selectedNodeId, visibleCapsules])
 
   const connectedEdges = useMemo(() => {
     if (!selectedNodeId) return []
-    return edges.filter((e) => e.from === selectedNodeId || e.to === selectedNodeId)
-  }, [selectedNodeId, edges])
+    return filteredEdges.filter((e) => e.from === selectedNodeId || e.to === selectedNodeId)
+  }, [selectedNodeId, filteredEdges])
 
   // Global pointer up listener so dragging NEVER gets stuck
   useEffect(() => {
@@ -333,7 +359,17 @@ export function RelationshipGraph({
           searchQuery.trim() === '' ||
           node.topic.toLowerCase().includes(searchQuery.toLowerCase())
 
-        const confColor = CONFIDENCE_COLORS[node.confidence] || '#f59e0b'
+        const isCode = node.tags.includes('code')
+        const isFile = node.tags.includes('file')
+        const isClass = node.tags.includes('class') || node.tags.includes('interface')
+        const isFunction = node.tags.includes('function')
+
+        let nodeBorderColor = CONFIDENCE_COLORS[node.confidence] || '#f59e0b'
+        if (isCode) {
+          if (isFile) nodeBorderColor = '#06b6d4'
+          else if (isClass) nodeBorderColor = '#a855f7'
+          else if (isFunction) nodeBorderColor = '#f59e0b'
+        }
 
         // Outer Glow Halo
         if (isSelected || isHovered) {
@@ -362,15 +398,15 @@ export function RelationshipGraph({
           : isHovered
           ? '#38bdf8'
           : isMatched
-          ? confColor
+          ? nodeBorderColor
           : 'rgba(255, 255, 255, 0.15)'
         ctx.lineWidth = isSelected || isHovered ? 3 : 1.8
         ctx.stroke()
 
-        // Inner Confidence Dot
+        // Inner Confidence / Symbol Dot
         ctx.beginPath()
         ctx.arc(node.x, node.y, 4, 0, Math.PI * 2)
-        ctx.fillStyle = confColor
+        ctx.fillStyle = nodeBorderColor
         ctx.fill()
 
         // Node Label
@@ -533,9 +569,9 @@ export function RelationshipGraph({
             gap: '12px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Link2 size={20} color="#38bdf8" /> Knowledge Relationship Graph
+              <Link2 size={20} color="#38bdf8" /> {graphMode === 'code' ? 'Code Dependency & Lineage Graph' : graphMode === 'knowledge' ? 'Knowledge Relationship Graph' : 'Unified Knowledge & Code Graph'}
             </span>
             <span
               style={{
@@ -547,11 +583,63 @@ export function RelationshipGraph({
                 fontWeight: 600,
               }}
             >
-              {edges.length} Relationships • {capsules.length} Capsules
+              {filteredEdges.length} Edges • {visibleCapsules.length} Nodes
             </span>
+
+            {/* Graph Mode Selector */}
+            <div style={{ display: 'flex', background: '#0a0f1d', borderRadius: '9999px', padding: '3px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <button
+                onClick={() => { setGraphMode('knowledge'); setSelectedNodeId(null); }}
+                style={{
+                  background: graphMode === 'knowledge' ? 'rgba(56, 189, 248, 0.25)' : 'transparent',
+                  color: graphMode === 'knowledge' ? '#38bdf8' : '#94a3b8',
+                  border: 'none',
+                  borderRadius: '9999px',
+                  padding: '4px 11px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🧠 Knowledge
+              </button>
+              <button
+                onClick={() => { setGraphMode('code'); setSelectedNodeId(null); }}
+                style={{
+                  background: graphMode === 'code' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
+                  color: graphMode === 'code' ? '#f59e0b' : '#94a3b8',
+                  border: 'none',
+                  borderRadius: '9999px',
+                  padding: '4px 11px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                ⚡ Code Graph
+              </button>
+              <button
+                onClick={() => { setGraphMode('all'); setSelectedNodeId(null); }}
+                style={{
+                  background: graphMode === 'all' ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
+                  color: graphMode === 'all' ? '#10b981' : '#94a3b8',
+                  border: 'none',
+                  borderRadius: '9999px',
+                  padding: '4px 11px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🌐 Unified
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             {/* Search Filter */}
             <div style={{ position: 'relative' }}>
               <Search
@@ -594,6 +682,13 @@ export function RelationshipGraph({
               <option value="depends_on">depends_on</option>
               <option value="supersedes">supersedes</option>
               <option value="verifies">verifies</option>
+              <option value="implements">implements (Knowledge ↔ Code)</option>
+              <option value="implemented_by">implemented_by (Code ↔ Knowledge)</option>
+              <option value="calls">calls</option>
+              <option value="imports">imports</option>
+              <option value="defines">defines</option>
+              <option value="inherits">inherits</option>
+              <option value="contract_http">contract_http</option>
             </select>
 
             {/* Zoom Controls */}
@@ -696,7 +791,7 @@ export function RelationshipGraph({
             flexWrap: 'wrap',
           }}
         >
-          <span><b>Relationship Types:</b></span>
+          <span><b>Types:</b></span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#38bdf8' }} /> relates_to
           </span>
@@ -704,10 +799,16 @@ export function RelationshipGraph({
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#c084fc' }} /> depends_on
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#fb7185' }} /> supersedes
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#84cc16' }} /> implements
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#34d399' }} /> verifies
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#f59e0b' }} /> calls
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#06b6d4' }} /> imports
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#10b981' }} /> defines
           </span>
         </div>
       </div>
@@ -816,8 +917,12 @@ export function RelationshipGraph({
                 >
                   <option value="relates_to">relates_to</option>
                   <option value="depends_on">depends_on</option>
+                  <option value="implements">implements</option>
+                  <option value="implemented_by">implemented_by</option>
                   <option value="supersedes">supersedes</option>
                   <option value="verifies">verifies</option>
+                  <option value="calls">calls</option>
+                  <option value="defines">defines</option>
                 </select>
 
                 <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>

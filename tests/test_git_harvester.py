@@ -116,7 +116,7 @@ class TestGitHarvester:
         assert result.deduped_count == 0
 
         # Verify files created on disk
-        caps_files = list(caps_dir.glob("*.caps.md"))
+        caps_files = list(caps_dir.rglob("*.caps.md"))
         assert len(caps_files) == 3
 
     def test_harvest_dry_run_creates_zero_files(self, temp_git_repo, db_session, tmp_path):
@@ -128,7 +128,7 @@ class TestGitHarvester:
 
         assert result.total_units == 3
         assert result.created_count == 0
-        assert len(list(caps_dir.glob("*.caps.md"))) == 0
+        assert len(list(caps_dir.rglob("*.caps.md"))) == 0
 
     def test_harvest_idempotency(self, temp_git_repo, db_session, tmp_path):
         caps_dir = tmp_path / "caps_git_idempotent"
@@ -216,4 +216,4 @@ class TestCliCommands:
         )
         assert result.exit_code == 0
         assert "Git harvesting complete!" in result.output
-        assert len(list(caps_dir.glob("*.caps.md"))) == 3
+        assert len(list(caps_dir.rglob("*.caps.md"))) == 3

@@ -1,65 +1,61 @@
 ---
-created: 2026-09-30T18:18:21.091307+00:00
-id: 1b5c3f3803c4
-modified: 2026-09-30T18:18:21.091307+00:00
+created: 2026-10-01T02:17:11.424160+00:00
+id: 73c8908cbf5c
+modified: 2026-10-01T08:52:00.000000+00:00
 source: daemon
 status: active
 tags:
   - todos
+  - roadmap
 type: todos
 ---
 
-# Open Items: capsule
+# Capsule Project Roadmap & Improvements
 
-- **[BUG]** ging or research workflow. — `next_strategy.md`
-- **[BUG]** -c high — `README.md`
-- **[BUG]** , auth, staging] — `README.md`
-- **[BUG]** -Override` is present. — `README.md`
-- **[BUG]** ging.md` file. Format: `ERROR: <Details> | Date: <date> | Status: <new/re-occur> | Fix: <Fix description>`. — `AGENTS.md`
-- **[BUG]** ging log — `debugging.md`
-- **[BUG]** fix rationale.""" — `services/ingest/git_harvester.py`
-- **[BUG]** s — `services/registry/builtins.py`
-- **[BUG]** " — `frontend/src/App.tsx`
-- **[BUG]** ging and development cycle (100 total fact submissions with a 75% recurring fact rate). — `docs/BENCHMARKS.md`
-- **[BUG]** -Override` is present in the request. — `evals/benchmark_token_efficiency.py`
-- **[BUG]** -Override` header is present. This is intentional for mobile E2E CI tests. Rejected with HTTP 400 in production.", — `evals/benchmark_token_efficiency.py`
-- **[BUG]** -Override` auth bypass. Do not remove or alter without mobile infra coordination.", — `evals/benchmark_token_efficiency.py`
-- **[BUG]** -Override` header is present", — `evals/benchmark_token_efficiency.py`
-- **[BUG]** -Override` auth bypass", — `evals/benchmark_token_efficiency.py`
-- **[BUG]** -Override", "mobile", "CI"], — `evals/benchmark_token_efficiency.py`
-- **[BUG]** ging, reviewing logs, checking CI, querying databases). — `evals/sim_agent_bloat.py`
-- **[BUG]** -Override header is provided.", ["auth", "staging"]), — `evals/sim_agent_bloat.py`
-- **[BUG]** -Override header bypass in staging.", ["ci", "mobile", "auth"]), — `evals/sim_agent_bloat.py`
-- **[BUG]** -Override` header is present. This is intentional for mobile E2E CI tests. Rejected with HTTP 400 in production.", — `evals/data/README.md`
-- **[BUG]** -Override` header is present", — `evals/data/README.md`
-- **[BUG]** -Override` auth bypass" — `evals/data/README.md`
-- **[BUG]** -Override", "mobile", "CI"], — `evals/data/README.md`
-- **[BUG]** -Override` is present in the request. — `evals/data/build_datasets.py`
-- **[BUG]** -Override` header is present. This is intentional for mobile E2E CI tests. Rejected with HTTP 400 in production.", — `evals/data/build_datasets.py`
-- **[BUG]** -Override` auth bypass. Do not remove or alter without mobile infra coordination.", — `evals/data/build_datasets.py`
-- **[BUG]** -Override` header is present", — `evals/data/build_datasets.py`
-- **[BUG]** -Override` auth bypass", — `evals/data/build_datasets.py`
-- **[BUG]** -Override", "mobile", "CI"], — `evals/data/build_datasets.py`
-- **[BUG]** -Override header is provided.", ["auth", "staging"]), — `evals/data/build_datasets.py`
-- **[BUG]** -Override header bypass in staging.", ["ci", "mobile", "auth"]), — `evals/data/build_datasets.py`
-- **[BUG]** -Override header is present, staging skips JWT. — `extensions/vscode-capsule/tests/test_service.js`
-- **[BUG]** -Override')); — `extensions/vscode-capsule/tests/test_service.js`
-- **[XXX]** xxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { — `extensions/vscode-capsule/src/extension.ts`
-- **[BUG]** -Override bypass header in the staging environment. — `tests/test_pydantic_ai_adapter.py`
-- **[BUG]** -Override header\n\nWhen testing on mobile CI, staging allows bypassing JWT authentication when the debug override header is passed.", — `tests/test_git_harvester.py`
-- **[BUG]** Fix Invariant — `tests/test_git_harvester.py`
-- **[BUG]** -Override header" in t for t in topics) — `tests/test_git_harvester.py`
-- **[BUG]** -Override is passed, staging skips JWT authentication.", — `tests/test_crewai_adapter.py`
-- **[BUG]** -Override" in res["content"] — `tests/test_crewai_adapter.py`
-- **[BUG]** -Override bypass header in staging environment. — `tests/test_ci_linter.py`
-- **[BUG]** ", "auth", "staging"] — `tests/test_parser.py`
-- **[BUG]** , staging\n---\n\nContent." — `tests/test_parser.py`
-- **[BUG]** ", "staging"] — `tests/test_parser.py`
-- **[BUG]** , auth, staging] — `tests/conftest.py`
-- **[BUG]** -Override` is present. — `tests/conftest.py`
-- **[BUG]** ] — `tests/conftest.py`
-- **[BUG]** -Override is passed. — `tests/test_langchain_adapter.py`
-- **[BUG]** -Override" in context — `tests/test_langchain_adapter.py`
-- **[BUG]** -Override.") — `tests/test_langchain_adapter.py`
+## 🚀 High-Impact Improvement Tasks
 
-_... and 72 more_
+### A. Cross-Layer Linking: Connect Knowledge ADRs to Code (`implements`)
+- [x] **Automated ADR-to-Code Linker**: Scan docstrings and source comments for `# ADR: 001`, `[[Architecture]]`, or topic references to automatically generate `implements` or `verifies` edges:
+  ```
+  [Architecture: File-First Vault] ──(implemented_by)──▶ [Class: CapsuleStore]
+  ```
+- [x] **Unified Graph Highlighting**: In the Web UI Unified Graph view, clicking an Architecture node immediately highlights all corresponding code files, classes, and methods that implement it.
+
+---
+
+### B. Incremental Git Commit Ingestion (Zero-Overhead Sync)
+- [ ] **Git Hook Ingestor**: Add pre-commit / post-commit hook:
+  ```bash
+  caps ingest --git-diff HEAD~1
+  ```
+- [ ] **Selective Re-Parsing**: Only parse and re-link the exact files and functions changed in the current commit, ensuring the Code Graph stays 100% updated in sub-15ms.
+
+---
+
+### C. Code Drift & Architectural Boundary Violation Detector
+- [ ] **`caps verify-drift` Command**:
+  - **Dead Code Detection**: Flag functions or methods that have 0 incoming `calls` or `imports` edges across the entire repository.
+  - **Architectural Boundary Violations**: Flag if frontend UI code or API route handlers directly bypass service layers or import private database internals.
+- [ ] **CI Linter Integration**: Connect drift checks to the GitHub Actions CI verifier (`capsule-ci`).
+
+---
+
+### D. Frontend Graph Canvas: Cluster Grouping & Convex Hulls
+- [ ] **Directory Clustering (Convex Hulls)**: Draw subtle translucent bounding boxes/clusters around nodes belonging to the same category (`architecture`, `benchmarks`, `code/python`, `code/typescript`).
+- [ ] **Interactive Folder Filter Pills**: Add toolbar toggle buttons for specific subfolders (`/benchmarks`, `/code/python`, `/architecture`) in addition to relationship types.
+- [ ] **Mini-Map Navigator**: Add a mini-map radar in the bottom corner of the canvas for large codebases (1,000+ nodes).
+
+---
+
+### E. Multi-Language Tree-Sitter Extension (Go, Rust, Java)
+- [ ] **Tree-Sitter Grammar Integration**: Integrate optional tree-sitter grammars into `services/ingest/parsers/` to support Go (`.go`), Rust (`.rs`), and Java (`.java`).
+- [ ] **Universal Code Decomposer**: Use unified CST queries while preserving deterministic `stable_id` hashing and language subfolder routing (`capsules/code/go/`, `capsules/code/rust/`).
+
+---
+
+## ✅ Completed Milestones
+- [x] **Separated Code Graph**: Multi-mode UI selector (🧠 Knowledge Graph, ⚡ Code Graph, 🌐 Unified View).
+- [x] **Language Subtree Organization**: Routing code capsules into `capsules/code/python/...` and `capsules/code/typescript/...`.
+- [x] **Deterministic AST Ingestion**: Native Python `ast` visitor, call-graph resolver, and TypeScript parser from Ledger & Aether.
+- [x] **Canonical Frontmatter Relationships**: Relationship persistence fix with `calls`, `defines`, `imports`, and `inherits` edges.
+- [x] **Thickened Graph Arrows**: Canvas rendering with high-visibility arrows and type-specific color coding.
