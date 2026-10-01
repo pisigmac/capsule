@@ -1,7 +1,7 @@
 ---
-created: 2026-09-29T11:07:28.515415+00:00
-id: d68229d18512
-modified: 2026-09-29T11:07:28.515415+00:00
+created: 2026-10-01T04:47:51.079618+00:00
+id: 647be6fcdebc
+modified: 2026-10-01T04:47:51.079618+00:00
 source: daemon
 status: active
 tags:
@@ -19,21 +19,33 @@ type: structure
   Dockerfile
   LICENSE
   README.md
+  action.yml
   capsule.db
   debugging.md
   docker-compose.yml
   install.sh
+  next_strategy.md
   pyproject.toml
   start_all.sh
   stop_all.sh
   services/
     __init__.py
+    services/ingest/
+      __init__.py
+      ast_splitter.py
+      code_decomposer.py
+      decomposer.py
+      git_harvester.py
+      llm_splitter.py
+      pr_harvester.py
     services/store/
       __init__.py
       store.py
     services/embed/
       __init__.py
       embedder.py
+    services/adapters/
+      __init__.py
     services/api/
       __init__.py
       dependencies.py
@@ -45,10 +57,18 @@ type: structure
     services/sync/
       __init__.py
       __main__.py
+      obsidian_adapter.py
+      symlink_manager.py
       watcher.py
     services/gitcommit/
       __init__.py
       committer.py
+    services/registry/
+      __init__.py
+      builtins.py
+      client.py
+      manifest.py
+      publisher.py
     services/shared/
       __init__.py
       config.py
@@ -76,9 +96,18 @@ type: structure
       icons.svg
     frontend/src/
       App.tsx
+      RelationshipGraph.tsx
       api.ts
       index.css
       main.tsx
+  paper/
+    README.md
+    capsule_paper.zip
+    paper.md
+    paper.tex
+    references.bib
+    paper/figures/
+      memory_bloat_simulation.png
   cli/
     __init__.py
     main.py
@@ -86,72 +115,103 @@ type: structure
     AGENTS.md
     API.md
     ARCHITECTURE.md
+    ARCHITECTURE_EVOLUTION.md
+    BENCHMARKS.md
     CHANGELOG.md
+    CODEBASE_INGESTION.md
     CODEMAP.md
     DB_SCHEMA.md
     DEPLOY.md
+    DEVELOPER_GUIDE.md
     ENV.md
     ERRORS.md
     FEATURES.md
     FUTURE.md
     SECURITY.md
+    SOCIAL_MEDIA_30_DAYS.md
     TECH-STACK.md
     TESTS.md
+    docs/superpowers/
+  evals/
+    __init__.py
+    ablation_study.py
+    benchmark_hotpotqa_100.py
+    benchmark_hotpotqa_1000.py
+    benchmark_latency_throughput.py
+    benchmark_token_efficiency.py
+    eval_llm_accuracy.py
+    eval_multi_model_comparison.py
+    sim_agent_bloat.py
+    evals/data/
+      README.md
+      __init__.py
+      atomic_capsules.json
+      benchmark_queries.json
+      bloat_simulation_stream.json
+      build_datasets.py
+      hotpotqa_100.json
+      hotpotqa_1000.json
+      load_dataset.py
+      technical_corpus.json
+    evals/results/
+      ABLATION.md
+      BENCHMARK.md
+      HOTPOTQA_1000_BENCHMARK.md
+      HOTPOTQA_100_BENCHMARK.md
+      LATENCY_BENCHMARK.md
+      LLM_ACCURACY.md
+      MULTI_MODEL_COMPARISON.md
+      ablation_results.json
+      benchmark_report.json
+      hotpotqa_1000_report.json
+      hotpotqa_100_report.json
+      latency_report.json
+      llm_accuracy_report.json
+      memory_bloat_report.json
+      memory_bloat_simulation.png
+      multi_model_comparison_report.json
+  extensions/
+    extensions/vscode-capsule/
+      README.md
+      package-lock.json
+      package.json
+      tsconfig.json
   scripts/
     build_pypi.sh
     e2e_curl.sh
     setup.sh
     start_all.sh
     stop_all.sh
-  korn.egg-info/
-    PKG-INFO
-    SOURCES.txt
-    dependency_links.txt
-    entry_points.txt
-    requires.txt
-    top_level.txt
+  kapsule/
+    __init__.py
+    kapsule/adapters/
+      __init__.py
   tests/
     __init__.py
     conftest.py
+    test_adr_linker.py
     test_api.py
+    test_benchmark.py
+    test_ci_linter.py
+    test_code_ingest.py
+    test_code_python_parser.py
+    test_code_ts_parser.py
+    test_crewai_adapter.py
+    test_demo.py
     test_e2e.py
     test_future.py
-    test_parser.py
-    test_postgres.py
-    test_search.py
-    test_sync.py
+    test_git_harvester.py
+    test_ingest.py
+    test_langchain_adapter.py
+    test_llamaindex_adapter.py
+    test_mcp_installer.py
+    test_multilang_parsers.py
+    test_obsidian_sync.py
+    ... (9 more)
   templates/
     meeting.md
     person.md
     project.md
-  pykorn.egg-info/
-    PKG-INFO
-    SOURCES.txt
-    dependency_links.txt
-    entry_points.txt
-    requires.txt
-    top_level.txt
   sessions/
   decisions/
-  capsules/
-    capsule-stores-one-fact-per-file-7c2a9f14.capsule.md
-    compose-builds-an-agent-context-window-3a91c0be.capsule.md
-    optional-api-token-for-exposed-instances-55e0b7d2.capsule.md
-    postgres-is-the-shared-index-9b1e4c70.capsule.md
-    search-uses-integer-fts5-rowids-0d4e18aa.capsule.md
-    ui-write-path-creates-a-markdown-file-8fec4efd.capsule.md
-    capsules/archived/
-    capsules/shared/
-  commits/
-    2026-09-01.md
-    2026-09-05.md
-    2026-09-29.md
-  meetings/
-  projects/
-    README.md
-    health.md
-    infrastructure.md
-    structure.md
-    tech-stack.md
-    todos.md
 ```

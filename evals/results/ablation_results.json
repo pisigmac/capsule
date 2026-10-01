@@ -1,0 +1,32 @@
+{
+  "ablations": [
+    {
+      "configuration": "Full Capsule System (Hybrid + Budget + Dedup)",
+      "avg_tokens": 238.8,
+      "avg_recall": 100.0,
+      "avg_density": 71.5,
+      "avg_redundancy": 0.0
+    },
+    {
+      "configuration": "Ablation 1: Lexical Only (FTS5, No Vectors)",
+      "avg_tokens": 238.8,
+      "avg_recall": 100.0,
+      "avg_density": 71.5,
+      "avg_redundancy": 0.0
+    },
+    {
+      "configuration": "Ablation 2: Fixed Top-K (No Token Budget Packing)",
+      "avg_tokens": 238.8,
+      "avg_recall": 100.0,
+      "avg_density": 71.5,
+      "avg_redundancy": 0.0
+    },
+    {
+      "configuration": "Ablation 3: No Deduplication (Append-only Bloat)",
+      "avg_tokens": 477.6,
+      "avg_recall": 100.0,
+      "avg_density": 71.5,
+      "avg_redundancy": 50.0
+    }
+  ]
+}

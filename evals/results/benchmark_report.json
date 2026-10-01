@@ -1,0 +1,99 @@
+{
+  "total_queries": 5,
+  "naive_avg_tokens": 379.8,
+  "capsule_avg_tokens": 239.0,
+  "token_savings_pct": 37.1,
+  "naive_avg_recall": 93.3,
+  "capsule_avg_recall": 100.0,
+  "naive_avg_density": 34.1,
+  "capsule_avg_density": 71.6,
+  "naive_avg_redundancy": 0.0,
+  "capsule_avg_redundancy": 0.0,
+  "queries": [
+    {
+      "query_id": "Q1",
+      "query": "How does staging bypass JWT authentication, and what CI pipeline depends on it?",
+      "naive": {
+        "tokens": 333,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 40.54054054054054
+      },
+      "capsule": {
+        "tokens": 174,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 91.37931034482759
+      },
+      "token_savings_pct": 47.7
+    },
+    {
+      "query_id": "Q2",
+      "query": "What are the database schema and search index requirements for SQLite and Postgres?",
+      "naive": {
+        "tokens": 388,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 57.21649484536082
+      },
+      "capsule": {
+        "tokens": 267,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 91.76029962546816
+      },
+      "token_savings_pct": 31.2
+    },
+    {
+      "query_id": "Q3",
+      "query": "How does content deduplication work when an agent submits a duplicate fact, and what happens on update conflict?",
+      "naive": {
+        "tokens": 346,
+        "recall": 66.66666666666666,
+        "redundancy_rate": 0.0,
+        "density": 24.277456647398843
+      },
+      "capsule": {
+        "tokens": 180,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 51.66666666666667
+      },
+      "token_savings_pct": 48.0
+    },
+    {
+      "query_id": "Q4",
+      "query": "How is the MCP server configured for stdio and HTTP, and what tools does it provide to agents?",
+      "naive": {
+        "tokens": 433,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 36.95150115473441
+      },
+      "capsule": {
+        "tokens": 214,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 98.5981308411215
+      },
+      "token_savings_pct": 50.6
+    },
+    {
+      "query_id": "Q5",
+      "query": "What happens if the search database is deleted, and how does the filesystem watchdog maintain sync?",
+      "naive": {
+        "tokens": 399,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 11.278195488721805
+      },
+      "capsule": {
+        "tokens": 360,
+        "recall": 100.0,
+        "redundancy_rate": 0.0,
+        "density": 24.72222222222222
+      },
+      "token_savings_pct": 9.8
+    }
+  ]
+}

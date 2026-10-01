@@ -1,0 +1,42 @@
+[
+  {
+    "id": "doc_auth_incident",
+    "title": "Incident 4482: Auth Middleware in Staging",
+    "domain": "Authentication & CI/CD",
+    "text": "# Incident Postmortem: Auth Middleware in Staging\n\n## Executive Summary\nOn 2026-07-11, mobile automation tests reported passing results even when invalid credentials were provided.\nInvestigation revealed that the authentication service middleware had been modified to accommodate E2E tests.\n\n## Root Cause Analysis\nStaging environment skips JWT token verification completely when the HTTP header `X-Debug-Override` is present in the request.\nThis was intentionally implemented during Sprint 44 to allow mobile CI pipelines to bypass third-party OAuth providers during stress testing.\nThe bypass is guarded by environment check `ENV == 'staging'`. In production, this header is rejected with HTTP 400.\n\n## Impact and Dependencies\nMobile CI pipelines depend directly on this behavior. Removing or altering the header check will break Android and iOS nightly integration suites.\nHowever, developer staging sandboxes should still supply test tokens when testing user personalization features.\n\n## Action Items\nDocument this in team runbooks and ensure mock token generation remains available for local frontend development.\nDo not remove the override header without coordinating with the mobile infrastructure team.\n",
+    "characters": 1212,
+    "tokens": 219
+  },
+  {
+    "id": "doc_database_arch",
+    "title": "Storage Engine and Database Architecture",
+    "domain": "Database & Storage Systems",
+    "text": "# Database and Storage Architecture Specification\n\n## Overview\nCapsule is designed around a dual-plane architecture where filesystem storage is the canonical source of truth and relational databases serve solely as derived search indexes.\n\n## SQLite Implementation\nFor standalone and local developer deployments, SQLite with the FTS5 extension is used.\nThe primary table `capsules` uses an integer `rowid` for high-performance virtual table joins with `capsule_search`.\nPublic identifiers are UUIDv4 strings, but internal joins leverage SQLite integer rowids to maintain sub-millisecond query latencies.\nFTS5 is configured with porter stemmer tokenization for fuzzy suffix matching.\n\n## PostgreSQL Implementation\nIn production and containerized environments, PostgreSQL 16 is used as the shared index.\nSearch is implemented via PostgreSQL native `tsvector` generated columns with GIN (Generalized Inverted Index) indexing.\nGIN indexes provide concurrent read access across multiple FastAPI worker processes.\nConnection pooling is managed using psycopg3 with connection recycling set to 300 seconds.\n\n## Rebuilding Indexes\nIf the SQLite file or PostgreSQL database is deleted or corrupted, the system performs a zero-data-loss reconciliation.\nOn startup or via the sync worker, Capsule scans all `.capsule.md` files on disk and repopulates all tables, tags, and search vectors.\n",
+    "characters": 1377,
+    "tokens": 260
+  },
+  {
+    "id": "doc_dedup_protocol",
+    "title": "Content Deduplication & Conflict Prevention",
+    "domain": "Memory Deduplication & API",
+    "text": "# Content Deduplication Protocol\n\n## Problem\nIn continuous autonomous agent loops, agents frequently record the same observation or learned fact repeatedly across different task iterations.\nThis causes catastrophic context window bloat, token exhaustion, and conflicting memory entries.\n\n## Hash-Based Deduplication\nCapsule implements deterministic content-hash deduplication using normalized SHA-256 digests.\nBefore hashing, whitespace is normalized: leading/trailing whitespace is stripped, line breaks are normalized to Unix newlines (`\\n`), and trailing whitespace on lines is removed.\nWhen `store.create()` is invoked, Capsule computes `hashlib.sha256(normalized_content.encode('utf-8')).hexdigest()`.\n\n## Collision Resolution\nIf a newly submitted capsule matches the content hash of an existing active capsule:\n1. No new `.capsule.md` file is written to the filesystem.\n2. The existing capsule's tags are merged with the new tags.\n3. The API responds with HTTP 200 and sets `deduped: true` in the response payload.\n4. If an existing capsule is updated with `PATCH /capsules/{id}` to identical content of another capsule, the API raises HTTP 409 Conflict to prevent duplicate facts under different IDs.\n",
+    "characters": 1208,
+    "tokens": 245
+  },
+  {
+    "id": "doc_mcp_interface",
+    "title": "Model Context Protocol (MCP) Server Specification",
+    "domain": "Agent Protocol & Tool Calling",
+    "text": "# Model Context Protocol Specification\n\n## Background\nThe Model Context Protocol (MCP) allows AI coding assistants (such as Claude Desktop, Cursor, and Antigravity) to query and manipulate external tools in a standardized protocol.\n\n## Server Implementation\nCapsule provides an official MCP server implemented using the `mcp.server.fastmcp` Python SDK.\nThe server can run in two communication modes:\n1. `stdio`: Default mode for single-tenant local assistants. Spawned directly as a subprocess using `capsule mcp`.\n2. `Streamable HTTP`: Configured via `capsule mcp --http --port 9101` (host `127.0.0.1`), enabling multi-client network connectivity.\n\n## Exposed Tools\nThe server exposes five core tools:\n1. `search_capsules`: Queries the index with filters for text, tags, and minimum confidence.\n2. `compose_context`: Dynamically packs high-relevance capsules into a markdown prompt strictly bounded by a token budget.\n3. `get_capsule`: Retrieves the full markdown content and metadata for a specific capsule ID.\n4. `create_capsule`: Persists an atomic fact file to disk and updates the search index.\n5. `list_stale`: Returns facts that have not been updated within a specified duration (default: 90 days).\n",
+    "characters": 1207,
+    "tokens": 270
+  },
+  {
+    "id": "doc_sync_watcher",
+    "title": "Filesystem Sync and Watchdog Service",
+    "domain": "Filesystem Sync & Observability",
+    "text": "# Filesystem Watchdog and Real-Time Synchronization\n\n## Overview\nCapsule treats markdown files as canonical. Consequently, users and external tools frequently edit `.capsule.md` files directly using IDEs, git operations, or Obsidian.\n\n## Event Processing\nThe `services.sync.watcher` module runs a background thread utilizing the `watchdog` library.\nIt monitors the root `CAPSULES_DIR` for file creation, modification, and deletion events.\nDebouncing is applied with a 250ms window to prevent race conditions during rapid multi-file git checkouts.\n\n## Synchronization Cycle\nUpon detecting a file change:\n1. Created / Modified: The file is parsed by `CapsuleParser`. Frontmatter tags and topic are validated. The SQLite/Postgres database row is updated or inserted.\n2. Deleted: The corresponding row and its tag relationships are removed from the database index.\n3. Standalone Daemon: In Docker environments, synchronization is executed as an isolated background container (`python -m services.sync`) communicating with PostgreSQL.\n",
+    "characters": 1030,
+    "tokens": 210
+  }
+]

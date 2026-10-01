@@ -22,6 +22,12 @@ def estimate_tokens(value: str) -> int:
 
 
 def to_fts_query(raw: str) -> Optional[str]:
+    if not raw or not raw.strip():
+        return None
+    # If the caller provides an explicit boolean query with OR / AND, preserve it
+    trimmed = raw.strip()
+    if " OR " in trimmed or " AND " in trimmed:
+        return trimmed
     tokens = _TOKEN_RE.findall(raw)[:32]
     if not tokens:
         return None
@@ -275,6 +281,7 @@ class SearchEngine:
         confidence_min: Optional[str] = None,
         max_tokens: int = 4000,
         mode: str = "fts",
+        match_all_tags: bool = False,
     ) -> Dict[str, Any]:
         capsules = self.search(
             query=query or "",
@@ -283,6 +290,7 @@ class SearchEngine:
             limit=200,
             offset=0,
             mode=mode,
+            match_all_tags=match_all_tags,
         )
 
         if confidence_min:
@@ -295,6 +303,8 @@ class SearchEngine:
         current_tokens = 0
         included = 0
         truncated = False
+        included_capsules: List[Dict[str, Any]] = []
+        excluded_capsules: List[Dict[str, Any]] = []
 
         for capsule in capsules:
             header = f"# {capsule['topic']}\n"
@@ -305,12 +315,25 @@ class SearchEngine:
             )
             section = header + body + meta
             section_tokens = estimate_tokens(section)
+            cap_item = {
+                "id": capsule["id"],
+                "topic": capsule["topic"],
+                "content": capsule["content"],
+                "tags": capsule.get("tags", []),
+                "confidence": capsule.get("confidence", "medium"),
+                "token_estimate": section_tokens,
+                "file_path": capsule.get("file_path"),
+                "source": capsule.get("source"),
+            }
             if current_tokens + section_tokens > max_tokens:
                 truncated = True
-                break
+                cap_item["reason"] = f"Exceeds budget (+{section_tokens} tokens)"
+                excluded_capsules.append(cap_item)
+                continue
             parts.append(section)
             current_tokens += section_tokens
             included += 1
+            included_capsules.append(cap_item)
 
         context = "\n".join(parts)
         return {
@@ -318,6 +341,10 @@ class SearchEngine:
             "token_estimate": estimate_tokens(context) if context else 0,
             "capsule_count": included,
             "truncated": truncated,
+            "included_capsules": included_capsules,
+            "excluded_capsules": excluded_capsules,
+            "total_candidates": len(capsules),
+            "max_tokens": max_tokens,
         }
 
     def stale_capsules(self, days: int = 90) -> List[Dict[str, Any]]:

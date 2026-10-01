@@ -1,0 +1,42 @@
+name: 'Capsule Invariant & Schema Check'
+description: 'Validates Capsule knowledge vault schema integrity and gates PRs on architectural invariant conflicts'
+author: 'Vikas Budde'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  capsules-dir:
+    description: 'Path to directory containing capsule markdown files'
+    required: false
+    default: 'caps'
+  strict:
+    description: 'Fail CI if warnings or invariant alerts exist'
+    required: false
+    default: 'false'
+  base-ref:
+    description: 'Base git reference to compute PR diff against'
+    required: false
+    default: 'origin/main'
+  output-md:
+    description: 'Optional file path to output PR Markdown summary'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Capsule CI Gatekeeper
+      shell: bash
+      run: |
+        CMD_ARGS=("ci" "check" "${{ inputs.capsules-dir }}" "--github-summary")
+        if [ "${{ inputs.strict }}" = "true" ]; then
+          CMD_ARGS+=("--strict")
+        fi
+        if [ -n "${{ inputs.base-ref }}" ]; then
+          CMD_ARGS+=("--base" "${{ inputs.base-ref }}")
+        fi
+        if [ -n "${{ inputs.output-md }}" ]; then
+          CMD_ARGS+=("--output-md" "${{ inputs.output-md }}")
+        fi
+        caps "${CMD_ARGS[@]}" || python3 -m capsule_cli.main "${CMD_ARGS[@]}"

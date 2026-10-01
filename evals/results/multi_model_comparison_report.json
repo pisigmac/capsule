@@ -1,0 +1,339 @@
+{
+  "gemini-2.5-flash": {
+    "name": "Gemini 2.5 Flash",
+    "model_id": "gemini-2.5-flash",
+    "metrics": {
+      "naive": {
+        "accuracy_pct": 50.0,
+        "prompt_tokens": 379.8,
+        "answer_tokens": 81.6,
+        "latency_s": 1.25
+      },
+      "capsule": {
+        "accuracy_pct": 93.3,
+        "prompt_tokens": 238.2,
+        "answer_tokens": 75.4,
+        "latency_s": 0.98
+      },
+      "improvements": {
+        "token_savings_pct": 37.3,
+        "accuracy_gain_pct": 43.3
+      }
+    },
+    "queries": [
+      {
+        "query_id": "Q1",
+        "query": "How does staging bypass JWT authentication, and what CI pipeline depends on it?",
+        "naive": {
+          "prompt_tokens": 333,
+          "answer_tokens": 62,
+          "accuracy": 100.0,
+          "answer": "Staging bypasses JWT authentication when the HTTP header `X-Debug-Override` is present in a request, due to an environment check `ENV == 'staging'`. Mobile CI pipelines, specifically Android and iOS nightly integration suites, depend on this behavior to bypass third-party OAuth providers during stress testing."
+        },
+        "capsule": {
+          "prompt_tokens": 176,
+          "answer_tokens": 55,
+          "accuracy": 100.0,
+          "answer": "Staging bypasses JWT authentication by skipping `JWT verification` when the `X-Debug-Override` header is present. Mobile CI automation pipelines, including Android/iOS integration suites, directly depend on this `X-Debug-Override` auth bypass mechanism for their operations."
+        },
+        "prompt_savings_pct": 47.1
+      },
+      {
+        "query_id": "Q2",
+        "query": "What are the database schema and search index requirements for SQLite and Postgres?",
+        "naive": {
+          "prompt_tokens": 388,
+          "answer_tokens": 91,
+          "accuracy": 100.0,
+          "answer": "For **SQLite**, the primary table `capsules` utilizes an integer `rowid` for high-performance joins with the `capsule_search` virtual table. Search indexing is handled by FTS5, configured with porter stemmer tokenization for fuzzy suffix matching.\n\nFor **PostgreSQL**, search is implemented via native `tsvector` generated columns with GIN (Generalized Inverted Index) indexing. Connection pooling is managed using `psycopg3`."
+        },
+        "capsule": {
+          "prompt_tokens": 258,
+          "answer_tokens": 81,
+          "accuracy": 100.0,
+          "answer": "For SQLite, the schema integrates the `capsules` table with the `capsule_search` virtual table via an internal `rowid`, employing an FTS5 porter stemmer for search indexing. PostgreSQL 16 utilizes `tsvector` generated columns with GIN indexes for search, enabling concurrent multi-worker access. Both databases are derived search indexes, fully rebuildable from `.capsule.md` files."
+        },
+        "prompt_savings_pct": 33.5
+      },
+      {
+        "query_id": "Q3",
+        "query": "How does content deduplication work when an agent submits a duplicate fact, and what happens on update conflict?",
+        "naive": {
+          "prompt_tokens": 346,
+          "answer_tokens": 125,
+          "accuracy": 0.0,
+          "answer": "For **Content Deduplication**, Capsule implements **Hash-Based Deduplication** using normalized SHA-256 digests of content, where whitespace is normalized before hashing. If a new capsule's content hash matches an existing active capsule (Collision Resolution), no new `.capsule.md` file is written, the existing capsule's tags are merged, and the API responds with **HTTP 200** and sets `deduped: true`.\n\nRegarding **Update Conflict**, if an existing capsule is updated via `PATCH /capsules/{id}` to identical content of another capsule, the API raises **HTTP 409 Conflict**."
+        },
+        "capsule": {
+          "prompt_tokens": 183,
+          "answer_tokens": 69,
+          "accuracy": 66.66666666666666,
+          "answer": "# Update Conflict Prevention on Deduplication Updating a capsule via `PATCH /capsules/{id}` to match the content of another existing capsule raises HTTP 409 Conflict to prevent duplicate facts under differing IDs If duplicate content is posted, Capsule merges tags and returns HTTP 200 with `deduped: true` rather than writing a duplicate file"
+        },
+        "prompt_savings_pct": 47.1
+      },
+      {
+        "query_id": "Q4",
+        "query": "How is the MCP server configured for stdio and HTTP, and what tools does it provide to agents?",
+        "naive": {
+          "prompt_tokens": 433,
+          "answer_tokens": 68,
+          "accuracy": 0.0,
+          "answer": "The Model Context Protocol (MCP) allows AI coding assistants (such as Claude Desktop, Cursor, and Antigravity) to query and manipulate external tools in a standardized protocol It monitors the root `CAPSULES_DIR` for file creation, modification, and deletion events Capsule provides an official MCP server implemented using the `mcp"
+        },
+        "capsule": {
+          "prompt_tokens": 218,
+          "answer_tokens": 122,
+          "accuracy": 100.0,
+          "answer": "Capsule's official FastMCP server runs in two modes: default `stdio` for local AI assistants (spawned via `capsule mcp`), and `Streamable HTTP` on port 9101 (`capsule mcp --http --port 9101`) The MCP server exposes 5 tools: `search_capsules` (query index), `compose_context` (token-budgeted markdown prompt), `get_capsule` (fetch by ID), `create_capsule` (persist fact), and `list_stale` (detect outdated knowledge) # MCP Server stdio and HTTP Modes"
+        },
+        "prompt_savings_pct": 49.7
+      },
+      {
+        "query_id": "Q5",
+        "query": "What happens if the search database is deleted, and how does the filesystem watchdog maintain sync?",
+        "naive": {
+          "prompt_tokens": 399,
+          "answer_tokens": 62,
+          "accuracy": 50.0,
+          "answer": "If the SQLite file or PostgreSQL database is deleted or corrupted, the system performs a zero-data-loss reconciliation Capsule is designed around a dual-plane architecture where filesystem storage is the canonical source of truth and relational databases serve solely as derived search indexes Deleted: The corresponding row and its tag relationships are removed from the database index"
+        },
+        "capsule": {
+          "prompt_tokens": 356,
+          "answer_tokens": 50,
+          "accuracy": 100.0,
+          "answer": "If the database is deleted, Capsule reconciles and fully rebuilds all tables and tags from ` # Filesystem Watchdog Sync Cycle The sync service uses `watchdog` with 250ms debouncing to monitor `CAPSULES_DIR`"
+        },
+        "prompt_savings_pct": 10.8
+      }
+    ]
+  },
+  "gemini-3.6-flash": {
+    "name": "Gemini 3.6 Flash",
+    "model_id": "gemini-3.6-flash",
+    "metrics": {
+      "naive": {
+        "accuracy_pct": 60.0,
+        "prompt_tokens": 379.8,
+        "answer_tokens": 89.2,
+        "latency_s": 3.32
+      },
+      "capsule": {
+        "accuracy_pct": 100.0,
+        "prompt_tokens": 239.8,
+        "answer_tokens": 95.8,
+        "latency_s": 10.63
+      },
+      "improvements": {
+        "token_savings_pct": 36.9,
+        "accuracy_gain_pct": 40.0
+      }
+    },
+    "queries": [
+      {
+        "id": "Q1",
+        "question": "How does staging bypass JWT authentication, and what CI pipeline depends on it?",
+        "naive": {
+          "accuracy": 100.0,
+          "prompt_tokens": 333,
+          "answer_tokens": 71,
+          "latency_s": 4.0,
+          "answer": "* Staging bypasses JWT authentication by completely skipping token verification when the HTTP header `X-Debug-Override` is included in the request, controlled by the `ENV == 'staging'` environment check.\n* Mobile CI pipelines, specifically the Android and iOS nightly integration suites, depend on this behavior to bypass third-party OAuth providers during stress testing."
+        },
+        "capsule": {
+          "accuracy": 100.0,
+          "prompt_tokens": 173,
+          "answer_tokens": 52,
+          "latency_s": 31.53,
+          "answer": "* Staging bypasses JWT authentication by skipping JWT verification whenever the `X-Debug-Override` header is present. \n* Mobile CI automation pipelines, specifically Android/iOS integration suites for mobile E2E CI tests, directly depend on this bypass mechanism."
+        }
+      },
+      {
+        "id": "Q2",
+        "question": "What are the database schema and search index requirements for SQLite and Postgres?",
+        "naive": {
+          "accuracy": 100.0,
+          "prompt_tokens": 388,
+          "answer_tokens": 111,
+          "latency_s": 4.74,
+          "answer": "Based on the provided specification, the database schema and search index requirements are:\n\n* **SQLite:** Requires a primary `capsules` table using integer `rowid`s (with UUIDv4 public identifiers) joined to the `capsule_search` virtual table, using the FTS5 extension configured with porter stemmer tokenization for fuzzy suffix matching.\n* **PostgreSQL:** Requires PostgreSQL 16 with search implemented via native `tsvector` generated columns paired with GIN (Generalized Inverted Index) indexing to allow concurrent read access across worker processes."
+        },
+        "capsule": {
+          "accuracy": 100.0,
+          "prompt_tokens": 267,
+          "answer_tokens": 111,
+          "latency_s": 5.81,
+          "answer": "Based on the provided context, the database schema and search index requirements are:\n\n* **SQLite (Local):** Uses an FTS5 virtual table named `capsule_search` with a porter stemmer, joined to the main `capsules` table on internal integer `rowid` to provide sub-millisecond lookups while exposing public UUIDs.\n* **PostgreSQL (Production):** Requires PostgreSQL 16 utilizing `tsvector` generated columns backed by GIN indexes, configured with `psycopg3` connection pooling for concurrent multi-worker search access."
+        }
+      },
+      {
+        "id": "Q3",
+        "question": "How does content deduplication work when an agent submits a duplicate fact, and what happens on update conflict?",
+        "naive": {
+          "accuracy": 0.0,
+          "prompt_tokens": 346,
+          "answer_tokens": 48,
+          "latency_s": 1.58,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        },
+        "capsule": {
+          "accuracy": 100.0,
+          "prompt_tokens": 182,
+          "answer_tokens": 95,
+          "latency_s": 5.57,
+          "answer": "* When an agent submits a duplicate fact, Capsule normalizes whitespace, calculates a SHA-256 content hash, merges tags, and returns an `HTTP 200` response with `deduped: true` instead of writing a duplicate file.\n* If an agent attempts an update conflict by sending a `PATCH /capsules/{id}` that matches an existing capsule's content, the system raises an `HTTP 409 Conflict` to prevent duplicate facts under differing IDs."
+        }
+      },
+      {
+        "id": "Q4",
+        "question": "How is the MCP server configured for stdio and HTTP, and what tools does it provide to agents?",
+        "naive": {
+          "accuracy": 0.0,
+          "prompt_tokens": 433,
+          "answer_tokens": 48,
+          "latency_s": 0.81,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        },
+        "capsule": {
+          "accuracy": 100.0,
+          "prompt_tokens": 215,
+          "answer_tokens": 116,
+          "latency_s": 5.77,
+          "answer": "* The Capsule FastMCP server is configured in default `stdio` mode for local AI assistants via the `capsule mcp` command, or in `Streamable HTTP` mode on port 9101 via `capsule mcp --http --port 9101`.\n* It provides 5 tools to agents: `search_capsules` (query index), `compose_context` (token-budgeted markdown prompt), `get_capsule` (fetch by ID), `create_capsule` (persist fact), and `list_stale` (detect outdated knowledge)."
+        }
+      },
+      {
+        "id": "Q5",
+        "question": "What happens if the search database is deleted, and how does the filesystem watchdog maintain sync?",
+        "naive": {
+          "accuracy": 100.0,
+          "prompt_tokens": 399,
+          "answer_tokens": 168,
+          "latency_s": 5.47,
+          "answer": "Based on the provided context:\n\n* **Database Deletion Handling:** If the SQLite or PostgreSQL database is deleted or corrupted, Capsule performs a zero-data-loss reconciliation on startup or via the sync worker by scanning all `.capsule.md` files on disk to repopulate all tables, tags, and search vectors.\n* **Watchdog Monitoring Mechanism:** Real-time synchronization is maintained by the `services.sync.watcher` module, which runs a background thread utilizing the `watchdog` library to monitor `CAPSULES_DIR` for file creation, modification, and deletion events using a 250ms debouncing window.\n* **Synchronization Cycle:** Upon event detection, `CapsuleParser` parses files to update or insert rows in the database for created/modified files, or removes corresponding rows and tag relationships when files are deleted."
+        },
+        "capsule": {
+          "accuracy": 100.0,
+          "prompt_tokens": 362,
+          "answer_tokens": 105,
+          "latency_s": 4.49,
+          "answer": "Based on the provided context:\n\n* **Database Rebuilding:** If the search database is deleted, Capsule performs a Zero-Loss Index Rebuilding on startup, reconciling and fully rebuilding all tables and tags directly from `.capsule.md` files.\n* **Watchdog Sync:** The sync service monitors `CAPSULES_DIR` using `watchdog` with 250ms debouncing to automatically update or remove rows in the derived SQLite/Postgres index whenever file edits or deletions occur in external editors or git."
+        }
+      }
+    ]
+  },
+  "gemini-3.7-flash": {
+    "name": "Gemini 3.7 Flash",
+    "model_id": "gemini-3.7-flash",
+    "metrics": {
+      "naive": {
+        "accuracy_pct": 0.0,
+        "prompt_tokens": 379.8,
+        "answer_tokens": 48.0,
+        "latency_s": 7.52
+      },
+      "capsule": {
+        "accuracy_pct": 20.0,
+        "prompt_tokens": 239.8,
+        "answer_tokens": 49.4,
+        "latency_s": 16.35
+      },
+      "improvements": {
+        "token_savings_pct": 36.9,
+        "accuracy_gain_pct": 20.0
+      }
+    },
+    "queries": [
+      {
+        "id": "Q1",
+        "question": "How does staging bypass JWT authentication, and what CI pipeline depends on it?",
+        "naive": {
+          "accuracy": 0.0,
+          "prompt_tokens": 333,
+          "answer_tokens": 48,
+          "latency_s": 2.07,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        },
+        "capsule": {
+          "accuracy": 100.0,
+          "prompt_tokens": 173,
+          "answer_tokens": 55,
+          "latency_s": 45.29,
+          "answer": "* Staging bypasses JWT authentication by skipping JWT verification when the `X-Debug-Override` header is present in the request.\n* Mobile CI automation pipelines (specifically Android and iOS integration suites and E2E CI tests) depend directly on this auth bypass mechanism."
+        }
+      },
+      {
+        "id": "Q2",
+        "question": "What are the database schema and search index requirements for SQLite and Postgres?",
+        "naive": {
+          "accuracy": 0.0,
+          "prompt_tokens": 388,
+          "answer_tokens": 48,
+          "latency_s": 2.39,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        },
+        "capsule": {
+          "accuracy": 0.0,
+          "prompt_tokens": 267,
+          "answer_tokens": 48,
+          "latency_s": 2.8,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        }
+      },
+      {
+        "id": "Q3",
+        "question": "How does content deduplication work when an agent submits a duplicate fact, and what happens on update conflict?",
+        "naive": {
+          "accuracy": 0.0,
+          "prompt_tokens": 346,
+          "answer_tokens": 48,
+          "latency_s": 16.66,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        },
+        "capsule": {
+          "accuracy": 0.0,
+          "prompt_tokens": 182,
+          "answer_tokens": 48,
+          "latency_s": 4.89,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        }
+      },
+      {
+        "id": "Q4",
+        "question": "How is the MCP server configured for stdio and HTTP, and what tools does it provide to agents?",
+        "naive": {
+          "accuracy": 0.0,
+          "prompt_tokens": 433,
+          "answer_tokens": 48,
+          "latency_s": 6.99,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        },
+        "capsule": {
+          "accuracy": 0.0,
+          "prompt_tokens": 215,
+          "answer_tokens": 48,
+          "latency_s": 2.36,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        }
+      },
+      {
+        "id": "Q5",
+        "question": "What happens if the search database is deleted, and how does the filesystem watchdog maintain sync?",
+        "naive": {
+          "accuracy": 0.0,
+          "prompt_tokens": 399,
+          "answer_tokens": 48,
+          "latency_s": 9.51,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        },
+        "capsule": {
+          "accuracy": 0.0,
+          "prompt_tokens": 362,
+          "answer_tokens": 48,
+          "latency_s": 26.4,
+          "answer": "Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+        }
+      }
+    ]
+  }
+}

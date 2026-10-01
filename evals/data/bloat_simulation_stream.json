@@ -1,0 +1,1362 @@
+[
+  {
+    "submission_id": "sub_0001",
+    "step": 1,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "auth",
+      "security"
+    ],
+    "is_duplicate": false,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0002",
+    "step": 1,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_1",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0003",
+    "step": 2,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_2",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0004",
+    "step": 2,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_2",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0005",
+    "step": 3,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_3",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0006",
+    "step": 3,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_3",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0007",
+    "step": 4,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_4",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0008",
+    "step": 4,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_4",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0009",
+    "step": 5,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_5",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0010",
+    "step": 5,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "auth",
+      "staging"
+    ],
+    "is_duplicate": false,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0011",
+    "step": 6,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "sqlite",
+      "postgres"
+    ],
+    "is_duplicate": false,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0012",
+    "step": 6,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "step_6",
+      "staging",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0013",
+    "step": 7,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "security",
+      "auth",
+      "step_7"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0014",
+    "step": 7,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "dedup",
+      "api",
+      "conflicts"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0015",
+    "step": 8,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "conflicts",
+      "api",
+      "dedup",
+      "step_8"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0016",
+    "step": 8,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_8",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0017",
+    "step": 9,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "security",
+      "auth",
+      "step_9"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0018",
+    "step": 9,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "security",
+      "auth",
+      "step_9"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0019",
+    "step": 10,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "mcp",
+      "server",
+      "http"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0020",
+    "step": 10,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_10",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0021",
+    "step": 11,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "gin"
+    ],
+    "is_duplicate": false,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0022",
+    "step": 11,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "dedup",
+      "api",
+      "conflicts"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0023",
+    "step": 12,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_12",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0024",
+    "step": 12,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_12",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0025",
+    "step": 13,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_13",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0026",
+    "step": 13,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "architecture",
+      "storage",
+      "philosophy"
+    ],
+    "is_duplicate": false,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0027",
+    "step": 14,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_14",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0028",
+    "step": 14,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "conflicts",
+      "step_14",
+      "api",
+      "dedup"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0029",
+    "step": 15,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_15",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0030",
+    "step": 15,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_15",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0031",
+    "step": 16,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_16",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0032",
+    "step": 16,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_16",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0033",
+    "step": 17,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "server",
+      "step_17",
+      "mcp",
+      "http"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0034",
+    "step": 17,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "server",
+      "step_17",
+      "mcp",
+      "http"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0035",
+    "step": 18,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "staging",
+      "step_18",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0036",
+    "step": 18,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_18",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0037",
+    "step": 19,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "auth",
+      "security"
+    ],
+    "is_duplicate": false,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0038",
+    "step": 19,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "staging",
+      "auth",
+      "step_19"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0039",
+    "step": 20,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "philosophy",
+      "architecture",
+      "step_20",
+      "storage"
+    ],
+    "is_duplicate": true,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0040",
+    "step": 20,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "auth",
+      "staging"
+    ],
+    "is_duplicate": false,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0041",
+    "step": 21,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_21",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0042",
+    "step": 21,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "mcp",
+      "server",
+      "http"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0043",
+    "step": 22,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "staging",
+      "auth",
+      "step_22"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0044",
+    "step": 22,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "gin"
+    ],
+    "is_duplicate": false,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0045",
+    "step": 23,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "dedup",
+      "api",
+      "conflicts"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0046",
+    "step": 23,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "conflicts",
+      "api",
+      "dedup",
+      "step_23"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0047",
+    "step": 24,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_24",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0048",
+    "step": 24,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_24",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0049",
+    "step": 25,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_25",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0050",
+    "step": 25,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_25",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0051",
+    "step": 26,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "conflicts",
+      "api",
+      "dedup",
+      "step_26"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0052",
+    "step": 26,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "mcp",
+      "server",
+      "http"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0053",
+    "step": 27,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "staging",
+      "step_27",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0054",
+    "step": 27,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "step_27",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0055",
+    "step": 28,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "architecture",
+      "storage",
+      "philosophy"
+    ],
+    "is_duplicate": false,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0056",
+    "step": 28,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_28",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0057",
+    "step": 29,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_29",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0058",
+    "step": 29,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "step_29",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0059",
+    "step": 30,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "step_30",
+      "server",
+      "mcp",
+      "http"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0060",
+    "step": 30,
+    "topic": "Filesystem Watchdog Debounce",
+    "content": "Watchdog service monitors CAPSULES_DIR with a 250ms debounce window to prevent race conditions during git checkouts.",
+    "tags": [
+      "sync",
+      "watchdog",
+      "filesystem"
+    ],
+    "is_duplicate": false,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0061",
+    "step": 31,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "security",
+      "auth",
+      "step_31"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0062",
+    "step": 31,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "staging",
+      "step_31",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0063",
+    "step": 32,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "step_32",
+      "server",
+      "mcp",
+      "http"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0064",
+    "step": 32,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "dedup",
+      "api",
+      "conflicts"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0065",
+    "step": 33,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "philosophy",
+      "architecture",
+      "step_33",
+      "storage"
+    ],
+    "is_duplicate": true,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0066",
+    "step": 33,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "step_33",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0067",
+    "step": 34,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "cli",
+      "packaging",
+      "distribution"
+    ],
+    "is_duplicate": false,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0068",
+    "step": 34,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "distribution",
+      "step_34",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0069",
+    "step": 35,
+    "topic": "Filesystem Watchdog Debounce",
+    "content": "Watchdog service monitors CAPSULES_DIR with a 250ms debounce window to prevent race conditions during git checkouts.",
+    "tags": [
+      "sync",
+      "watchdog",
+      "filesystem"
+    ],
+    "is_duplicate": false,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0070",
+    "step": 35,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "architecture",
+      "storage",
+      "philosophy"
+    ],
+    "is_duplicate": false,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0071",
+    "step": 36,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "step_36",
+      "distribution",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0072",
+    "step": 36,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_36",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0073",
+    "step": 37,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_37",
+      "sqlite"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0074",
+    "step": 37,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "step_37",
+      "distribution",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0075",
+    "step": 38,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "gin"
+    ],
+    "is_duplicate": false,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0076",
+    "step": 38,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "step_38",
+      "api",
+      "security",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0077",
+    "step": 39,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_39",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0078",
+    "step": 39,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "architecture",
+      "storage",
+      "philosophy"
+    ],
+    "is_duplicate": false,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0079",
+    "step": 40,
+    "topic": "Zero-Data-Loss Index Rebuilding",
+    "content": "The database is strictly a derived search index. If corrupted, it can be regenerated from .capsule.md files on disk.",
+    "tags": [
+      "database",
+      "sync",
+      "architecture"
+    ],
+    "is_duplicate": false,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0080",
+    "step": 40,
+    "topic": "Zero-Data-Loss Index Rebuilding",
+    "content": "The database is strictly a derived search index. If corrupted, it can be regenerated from .capsule.md files on disk.",
+    "tags": [
+      "database",
+      "architecture",
+      "sync",
+      "step_40"
+    ],
+    "is_duplicate": true,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0081",
+    "step": 41,
+    "topic": "Mobile CI Dependency",
+    "content": "Nightly Android and iOS integration test suites depend on the X-Debug-Override header bypass in staging.",
+    "tags": [
+      "ci",
+      "mobile",
+      "auth"
+    ],
+    "is_duplicate": false,
+    "tokens": 21
+  },
+  {
+    "submission_id": "sub_0082",
+    "step": 41,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "step_41",
+      "staging",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0083",
+    "step": 42,
+    "topic": "Filesystem Watchdog Debounce",
+    "content": "Watchdog service monitors CAPSULES_DIR with a 250ms debounce window to prevent race conditions during git checkouts.",
+    "tags": [
+      "sync",
+      "watchdog",
+      "filesystem"
+    ],
+    "is_duplicate": false,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0084",
+    "step": 42,
+    "topic": "Database Dialect Selection",
+    "content": "SQLite with FTS5 is used for single-process local development, while PostgreSQL 16 with tsvector is used for production.",
+    "tags": [
+      "database",
+      "sqlite",
+      "postgres"
+    ],
+    "is_duplicate": false,
+    "tokens": 25
+  },
+  {
+    "submission_id": "sub_0085",
+    "step": 43,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "distribution",
+      "step_43",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0086",
+    "step": 43,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "distribution",
+      "step_43",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0087",
+    "step": 44,
+    "topic": "MCP Stdio and HTTP Support",
+    "content": "FastMCP server supports stdio for local AI assistants and Streamable HTTP on port 9101 for remote clients.",
+    "tags": [
+      "mcp",
+      "server",
+      "http"
+    ],
+    "is_duplicate": false,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0088",
+    "step": 44,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "cli",
+      "packaging",
+      "distribution"
+    ],
+    "is_duplicate": false,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0089",
+    "step": 45,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "conflicts",
+      "api",
+      "dedup",
+      "step_45"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0090",
+    "step": 45,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "philosophy",
+      "architecture",
+      "step_45",
+      "storage"
+    ],
+    "is_duplicate": true,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0091",
+    "step": 46,
+    "topic": "FastAPI Bearer Auth",
+    "content": "When CAPSULE_API_TOKEN is set, all routes except /health, /docs, and /openapi.json require Bearer authorization.",
+    "tags": [
+      "api",
+      "auth",
+      "security"
+    ],
+    "is_duplicate": false,
+    "tokens": 28
+  },
+  {
+    "submission_id": "sub_0092",
+    "step": 46,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "step_46",
+      "distribution",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0093",
+    "step": 47,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "conflicts",
+      "api",
+      "dedup",
+      "step_47"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0094",
+    "step": 47,
+    "topic": "PostgreSQL GIN tsvector",
+    "content": "Production PostgreSQL uses GIN indexing over generated tsvector columns with psycopg3 connection pooling.",
+    "tags": [
+      "database",
+      "postgres",
+      "step_47",
+      "gin"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0095",
+    "step": 48,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "step_48",
+      "distribution",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0096",
+    "step": 48,
+    "topic": "Update Conflict Guard",
+    "content": "PATCH /capsules/{id} returns HTTP 409 Conflict if an update causes the body to match another existing capsule.",
+    "tags": [
+      "conflicts",
+      "step_48",
+      "api",
+      "dedup"
+    ],
+    "is_duplicate": true,
+    "tokens": 24
+  },
+  {
+    "submission_id": "sub_0097",
+    "step": 49,
+    "topic": "Mobile CI Dependency",
+    "content": "Nightly Android and iOS integration test suites depend on the X-Debug-Override header bypass in staging.",
+    "tags": [
+      "step_49",
+      "ci",
+      "mobile",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 21
+  },
+  {
+    "submission_id": "sub_0098",
+    "step": 49,
+    "topic": "Auth Bypass in Staging",
+    "content": "Staging environment skips JWT token verification when X-Debug-Override header is provided.",
+    "tags": [
+      "step_49",
+      "staging",
+      "auth"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  },
+  {
+    "submission_id": "sub_0099",
+    "step": 50,
+    "topic": "Dual-Plane Storage Separation",
+    "content": "Human-readable Markdown on the filesystem is canonical; relational indexes are derived search mirrors.",
+    "tags": [
+      "architecture",
+      "storage",
+      "philosophy"
+    ],
+    "is_duplicate": false,
+    "tokens": 16
+  },
+  {
+    "submission_id": "sub_0100",
+    "step": 50,
+    "topic": "CLI Script Entrypoints",
+    "content": "Package scripts register both capsule and kapsule CLI commands with click and rich formatting.",
+    "tags": [
+      "packaging",
+      "step_50",
+      "distribution",
+      "cli"
+    ],
+    "is_duplicate": true,
+    "tokens": 17
+  }
+]

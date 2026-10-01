@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 import uuid
 from pathlib import Path
@@ -50,6 +51,43 @@ def content_hash(topic: str, content: str) -> str:
     return hashlib.sha256(normalize_content(content).encode("utf-8")).hexdigest()
 
 
+def infer_category(
+    tags: Optional[Iterable[str]] = None,
+    source: Optional[str] = None,
+    topic: str = "",
+) -> Optional[str]:
+    """Infers a folder category (e.g., code, benchmarks, architecture) from metadata."""
+    tag_set = {str(t).lower().strip() for t in (tags or [])}
+    src = str(source or "")
+    top_lower = str(topic or "").lower()
+
+    if "code" in tag_set or src.endswith(".py") or src.endswith(".ts") or src.endswith(".js"):
+        return "code"
+    if any(t in tag_set for t in ("benchmark", "benchmarks")) or "BENCHMARKS.md" in src or "benchmark" in top_lower:
+        return "benchmarks"
+    if "architecture" in tag_set or "ARCHITECTURE.md" in src or "rules" in tag_set or "rules" in top_lower:
+        return "architecture"
+    if "guide" in tag_set or "DEVELOPER_GUIDE.md" in src or "workflow" in top_lower:
+        return "guides"
+    if "api" in tag_set or "API.md" in src:
+        return "api"
+    if "git" in tag_set or src.startswith("git:"):
+        return "git"
+    if "security" in tag_set or "SECURITY.md" in src:
+        return "security"
+    if "changelog" in tag_set or "CHANGELOG.md" in src:
+        return "releases"
+    if "deploy" in tag_set or "DEPLOY.md" in src:
+        return "deploy"
+    if any(t in tag_set for t in ("mcp", "agents")) or "AGENTS.md" in src:
+        return "agents"
+    if any(t in tag_set for t in ("tech-stack", "environment", "database-schema", "codemap")) or any(
+        k in src for k in ("TECH-STACK.md", "ENV.md", "DB_SCHEMA.md", "CODEMAP.md")
+    ):
+        return "infrastructure"
+    return None
+
+
 class CapsuleStore:
     """Read and write capsules through the filesystem, then update the index."""
 
@@ -69,13 +107,34 @@ class CapsuleStore:
         root = self.capsules_dir.resolve()
         try:
             resolved.relative_to(root)
-        except ValueError as exc:
-            raise StoreError("Capsule path is outside CAPSULES_DIR") from exc
-        return resolved
+            return resolved
+        except ValueError:
+            pass
 
-    def _new_path(self, topic: str, capsule_id: str) -> Path:
-        name = f"{slugify(topic)}-{capsule_id[:8]}.capsule.md"
-        return self._safe_path(self.capsules_dir / name)
+        # Allow files located in directories symlinked under capsules_dir (e.g. linked Obsidian vaults)
+        if self.capsules_dir.exists():
+            try:
+                for item in self.capsules_dir.iterdir():
+                    if item.is_symlink():
+                        try:
+                            sym_target = item.resolve()
+                            resolved.relative_to(sym_target)
+                            return resolved
+                        except (ValueError, OSError):
+                            pass
+            except OSError:
+                pass
+
+        raise StoreError("Capsule path is outside CAPSULES_DIR")
+
+    def _new_path(self, topic: str, capsule_id: str, category: Optional[str] = None) -> Path:
+        name = f"{slugify(topic)}-{capsule_id[:8]}.caps.md"
+        target_dir = self.capsules_dir
+        if category:
+            parts = [slugify(p) for p in category.strip("/").split("/") if p.strip() and p != "."]
+            if parts:
+                target_dir = self.capsules_dir.joinpath(*parts)
+        return self._safe_path(target_dir / name)
 
     def _atomic_write(self, path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,6 +310,7 @@ class CapsuleStore:
         confidence: str = "medium",
         freshness=None,
         capsule_id: Optional[str] = None,
+        category: Optional[str] = None,
     ) -> Capsule:
         errors = self.parser.validate(
             self.parser.to_markdown(
@@ -275,8 +335,9 @@ class CapsuleStore:
             existing.deduped = True
             return existing
 
+        cat = category or infer_category(tags=tags, source=source, topic=topic)
         uid = capsule_id or str(uuid.uuid4())
-        path = self._new_path(topic, uid)
+        path = self._new_path(topic, uid, category=cat)
         capsule = Capsule(
             id=uid,
             topic=topic,
@@ -359,9 +420,25 @@ class CapsuleStore:
         seen: set[str] = set()
         count = 0
         if self.capsules_dir.exists():
-            for file_path in sorted(self.capsules_dir.rglob("*.capsule.md")):
+            candidate_files = []
+            patterns = (".caps.md", ".cap.md", ".capsule.md", ".capsule", ".cap")
+            for root_dir, dirs, files in os.walk(str(self.capsules_dir), followlinks=True):
+                dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "dist", "build")]
+                for f in files:
+                    if f.endswith(".tmp"):
+                        continue
+                    is_cap = any(f.endswith(p) for p in patterns)
+                    is_obsidian_md = ("/obsidian" in root_dir or "obsidian" in Path(root_dir).parts) and f.endswith(".md")
+                    if is_cap or is_obsidian_md:
+                        candidate_files.append(Path(root_dir) / f)
+            seen_fps: set[str] = set()
+            for file_path in sorted(candidate_files):
                 if file_path.name.endswith(".tmp"):
                     continue
+                resolved_fp = str(file_path.resolve())
+                if resolved_fp in seen_fps:
+                    continue
+                seen_fps.add(resolved_fp)
                 try:
                     capsule = self.upsert_from_file(file_path)
                     seen.add(str(Path(capsule.file_path).resolve()))
@@ -377,6 +454,7 @@ class CapsuleStore:
                 resolved = capsule.file_path
             if resolved not in seen:
                 self.db.delete(capsule)
+        self.db.flush()
         hashes: dict[str, list[str]] = {}
         for row in self.db.query(Capsule).filter(Capsule.archived.is_(False), Capsule.content_hash.isnot(None)):
             hashes.setdefault(row.content_hash, []).append(row.file_path or row.id)
@@ -408,5 +486,6 @@ class CapsuleStore:
         )
         self.db.add(rel)
         self.db.flush()
+        self.db.expire(source, ["outgoing_relationships"])
         self.write_file(source)
         return rel

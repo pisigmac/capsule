@@ -50,11 +50,45 @@ Updated content for the auth capsule.
             assert capsule.file_path is not None
             assert str(temp_capsule_dir) in capsule.file_path
 
+    def test_reconcile_mixed_caps_and_capsule_extensions(self, db_session, temp_capsule_dir):
+        (temp_capsule_dir / "redis.caps.md").write_text(
+            """---
+topic: "Redis cache invalidation"
+tags: [cache, redis]
+confidence: high
+---
+
+Redis cache TTL is 300 seconds.
+"""
+        )
+        (temp_capsule_dir / "worker.cap.md").write_text(
+            """---
+topic: "Background worker pool"
+tags: [worker]
+confidence: medium
+---
+
+Background worker concurrency defaults to 4.
+"""
+        )
+        service = CapsuleSyncService(watch_dirs=[str(temp_capsule_dir)])
+        service.initial_sync()
+        db_session.expire_all()
+        topics = {c.topic for c in db_session.query(Capsule).all()}
+        assert "Auth bypass" in topics  # from .capsule.md fixture
+        assert "Redis cache invalidation" in topics  # from .caps.md
+        assert "Background worker pool" in topics  # from .cap.md
+        assert db_session.query(Capsule).count() == 4
+
 
 class TestCapsuleEventHandler:
     def test_is_capsule_file(self):
         handler = CapsuleEventHandler(parser=CapsuleParser())
         assert handler._is_capsule_file("/path/to/file.capsule.md")
         assert handler._is_capsule_file("/path/to/file.capsule")
+        assert handler._is_capsule_file("/path/to/file.caps.md")
+        assert handler._is_capsule_file("/path/to/file.cap.md")
+        assert handler._is_capsule_file("/path/to/file.cap")
         assert not handler._is_capsule_file("/path/to/file.md")
         assert not handler._is_capsule_file("/path/to/file.capsule.md.tmp")
+        assert not handler._is_capsule_file("/path/to/file.caps.md.tmp")
