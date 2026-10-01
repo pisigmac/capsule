@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T18:14:18.946839+00:00
-id: 0c472f2b7090
-modified: 2026-09-30T18:14:18.946839+00:00
+created: 2026-09-30T18:18:21.091307+00:00
+id: 1b5c3f3803c4
+modified: 2026-09-30T18:18:21.091307+00:00
 source: daemon
 status: active
 tags:
@@ -49,6 +49,8 @@ type: todos
 - **[BUG]** -Override header\n\nWhen testing on mobile CI, staging allows bypassing JWT authentication when the debug override header is passed.", — `tests/test_git_harvester.py`
 - **[BUG]** Fix Invariant — `tests/test_git_harvester.py`
 - **[BUG]** -Override header" in t for t in topics) — `tests/test_git_harvester.py`
+- **[BUG]** -Override is passed, staging skips JWT authentication.", — `tests/test_crewai_adapter.py`
+- **[BUG]** -Override" in res["content"] — `tests/test_crewai_adapter.py`
 - **[BUG]** -Override bypass header in staging environment. — `tests/test_ci_linter.py`
 - **[BUG]** ", "auth", "staging"] — `tests/test_parser.py`
 - **[BUG]** , staging\n---\n\nContent." — `tests/test_parser.py`
@@ -59,7 +61,5 @@ type: todos
 - **[BUG]** -Override is passed. — `tests/test_langchain_adapter.py`
 - **[BUG]** -Override" in context — `tests/test_langchain_adapter.py`
 - **[BUG]** -Override.") — `tests/test_langchain_adapter.py`
-- **[BUG]** -Override" in output.text — `tests/test_langchain_adapter.py`
-- **[BUG]** ] — `tests/test_sync.py`
 
-_... and 70 more_
+_... and 72 more_

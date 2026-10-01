@@ -121,6 +121,7 @@ class DocumentDecomposer:
             file_deduped = 0
 
             if not dry_run:
+                file_capsules: List[Capsule] = []
                 for unit in units:
                     try:
                         capsule = self.store.create(
@@ -130,6 +131,7 @@ class DocumentDecomposer:
                             source=unit.source or f"ingest:{file_path.name}",
                             confidence=unit.confidence or self.confidence,
                         )
+                        file_capsules.append(capsule)
                         if getattr(capsule, "deduped", False):
                             result.deduped.append(capsule)
                             result.deduped_count += 1
@@ -140,6 +142,17 @@ class DocumentDecomposer:
                             file_created += 1
                     except Exception as exc:
                         logger.warning("Failed to store unit '%s': %s", unit.topic, exc)
+
+                # Link sequential units within the same document
+                for i in range(len(file_capsules) - 1):
+                    try:
+                        self.store.link(
+                            file_capsules[i].id,
+                            file_capsules[i + 1].id,
+                            relationship_type="relates_to",
+                        )
+                    except Exception:
+                        pass
 
             if on_progress:
                 on_progress(file_path, units, file_created, file_deduped)

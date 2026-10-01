@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY pyproject.toml README.md ./
 COPY services ./services
+COPY capsule_cli ./capsule_cli
+COPY kapsule ./kapsule
 COPY cli ./cli
 RUN pip install --no-cache-dir .
 

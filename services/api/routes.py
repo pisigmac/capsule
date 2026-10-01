@@ -241,6 +241,12 @@ def get_stale_capsules(days: int = Query(90, ge=1, le=3650), db: Session = Depen
     }
 
 
+@router.get("/relationships", response_model=List[RelationshipResponse])
+def list_relationships(db: Session = Depends(get_db)):
+    rels = db.query(CapsuleRelationship).all()
+    return [RelationshipResponse(**r.to_dict()) for r in rels]
+
+
 @router.post("/relationships", response_model=RelationshipResponse, status_code=201)
 def create_relationship(data: RelationshipCreate, store: CapsuleStore = Depends(get_store)):
     rel = store.link(

@@ -4,6 +4,7 @@ import {
   Clock,
   Copy,
   Layers,
+  Link2,
   Plus,
   Search,
   Sparkles,
@@ -12,8 +13,9 @@ import {
   X,
 } from 'lucide-react'
 import { api, type Capsule, type ComposeResult, type TagCount } from './api'
+import { RelationshipGraph } from './RelationshipGraph'
 
-type View = 'library' | 'compose' | 'stale'
+type View = 'library' | 'graph' | 'compose' | 'stale'
 type Draft = {
   id?: string
   topic: string
@@ -193,6 +195,13 @@ function App() {
             Library
           </button>
           <button
+            className={view === 'graph' ? 'tab active' : 'tab'}
+            onClick={() => setView('graph')}
+          >
+            <Link2 size={15} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+            Graph View
+          </button>
+          <button
             className={view === 'compose' ? 'tab active' : 'tab'}
             onClick={() => setView('compose')}
           >
@@ -323,6 +332,15 @@ function App() {
             </div>
           )}
         </>
+      ) : null}
+
+      {view === 'graph' ? (
+        <section style={{ margin: '20px 0' }}>
+          <RelationshipGraph
+            capsules={capsules}
+            onSelectCapsule={(cap) => openEdit(cap)}
+          />
+        </section>
       ) : null}
 
       {view === 'compose' ? (

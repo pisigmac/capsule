@@ -444,5 +444,6 @@ class CapsuleStore:
         )
         self.db.add(rel)
         self.db.flush()
+        self.db.expire(source, ["outgoing_relationships"])
         self.write_file(source)
         return rel

@@ -43,7 +43,7 @@ node_modules/
 **/node_modules/
 extensions/**/dist/
 extensions/**/node_modules/
-
+*.caps.md
 # OS
 .DS_Store
 
@@ -55,3 +55,5 @@ extensions/**/node_modules/
 paper/
 next_strategy.md
 backlog.d/
+landing/
+docs/SOCIAL_MEDIA_30_DAYS.md

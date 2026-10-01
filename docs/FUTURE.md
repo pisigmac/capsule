@@ -1,10 +1,10 @@
-# Future — implementation plan
+# Future & Architectural Evolution
 
-Shipped in 0.4.0. This file is the spec that was implemented.
+> 📖 **Next-Generation Architecture**: For the comprehensive multi-agent scaling blueprint (Graph-Aware Knapsack, Contradiction Engine, RRF Fusion, and CRDT Sync), see [`ARCHITECTURE_EVOLUTION.md`](ARCHITECTURE_EVOLUTION.md).
 
-Do these in order. Each slice should ship independently with tests. Files stay canonical; the DB stays a derived index.
+---
 
-Not planned: Stripe, seats, Notion import, “world-class glassmorphism.”
+## Historical v0.4.0 Implementation Plan (Shipped)
 
 ---
 

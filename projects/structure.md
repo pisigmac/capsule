@@ -1,7 +1,7 @@
 ---
-created: 2026-09-30T18:14:18.904014+00:00
-id: dccb7bf8400c
-modified: 2026-09-30T18:14:18.904014+00:00
+created: 2026-09-30T18:18:21.048764+00:00
+id: b9d02441c839
+modified: 2026-09-30T18:18:21.048764+00:00
 source: daemon
 status: active
 tags:
@@ -185,6 +185,7 @@ type: structure
     test_api.py
     test_benchmark.py
     test_ci_linter.py
+    test_crewai_adapter.py
     test_demo.py
     test_e2e.py
     test_future.py
@@ -199,8 +200,7 @@ type: structure
     test_postgres.py
     test_pydantic_ai_adapter.py
     test_registry.py
-    test_search.py
-    ... (3 more)
+    ... (4 more)
   templates/
     meeting.md
     person.md
