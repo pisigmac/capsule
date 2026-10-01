@@ -1,7 +1,7 @@
 ---
-created: 2026-10-01T02:17:11.280171+00:00
-id: bf41cf7a653d
-modified: 2026-10-01T02:17:11.280171+00:00
+created: 2026-10-01T04:18:17.144590+00:00
+id: 2e3a5cb281c6
+modified: 2026-10-01T04:18:17.144590+00:00
 source: daemon
 status: active
 tags:
@@ -33,6 +33,7 @@ type: structure
     services/ingest/
       __init__.py
       ast_splitter.py
+      code_decomposer.py
       decomposer.py
       git_harvester.py
       llm_splitter.py
@@ -130,6 +131,7 @@ type: structure
     SOCIAL_MEDIA_30_DAYS.md
     TECH-STACK.md
     TESTS.md
+    docs/superpowers/
   evals/
     __init__.py
     ablation_study.py
@@ -187,9 +189,13 @@ type: structure
   tests/
     __init__.py
     conftest.py
+    test_adr_linker.py
     test_api.py
     test_benchmark.py
     test_ci_linter.py
+    test_code_ingest.py
+    test_code_python_parser.py
+    test_code_ts_parser.py
     test_crewai_adapter.py
     test_demo.py
     test_e2e.py
@@ -201,17 +207,11 @@ type: structure
     test_mcp_installer.py
     test_obsidian_sync.py
     test_oci_registry.py
-    test_parser.py
-    test_postgres.py
-    test_pydantic_ai_adapter.py
-    test_registry.py
-    ... (4 more)
+    ... (8 more)
   templates/
     meeting.md
     person.md
     project.md
   sessions/
   decisions/
-  capsules/
-    0-2-0-e6b3a951.caps.md
 ```

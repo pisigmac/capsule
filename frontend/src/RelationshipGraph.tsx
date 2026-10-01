@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Folder,
+  Layers,
   Link2,
+  Map as MapIcon,
   Maximize2,
   Minimize2,
   Plus,
@@ -16,6 +19,7 @@ type GraphNode = {
   topic: string
   confidence: string
   tags: string[]
+  category: string
   x: number
   y: number
   vx: number
@@ -29,6 +33,8 @@ type GraphEdge = {
   to: string
   type: string
 }
+
+type Point = { x: number; y: number }
 
 const CONFIDENCE_COLORS: Record<string, string> = {
   high: '#10b981',
@@ -50,6 +56,65 @@ const REL_COLORS: Record<string, string> = {
   implemented_by: '#10b981',
 }
 
+const CLUSTER_STYLES: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  architecture: { bg: 'rgba(56, 189, 248, 0.07)', border: 'rgba(56, 189, 248, 0.35)', text: '#38bdf8', dot: '#38bdf8' },
+  'code/python': { bg: 'rgba(245, 158, 11, 0.07)', border: 'rgba(245, 158, 11, 0.35)', text: '#f59e0b', dot: '#f59e0b' },
+  'code/typescript': { bg: 'rgba(59, 130, 246, 0.07)', border: 'rgba(59, 130, 246, 0.35)', text: '#60a5fa', dot: '#3b82f6' },
+  code: { bg: 'rgba(245, 158, 11, 0.07)', border: 'rgba(245, 158, 11, 0.35)', text: '#f59e0b', dot: '#f59e0b' },
+  benchmarks: { bg: 'rgba(236, 72, 153, 0.07)', border: 'rgba(236, 72, 153, 0.35)', text: '#ec4899', dot: '#ec4899' },
+  agents: { bg: 'rgba(168, 85, 247, 0.07)', border: 'rgba(168, 85, 247, 0.35)', text: '#c084fc', dot: '#a855f7' },
+  security: { bg: 'rgba(239, 68, 68, 0.07)', border: 'rgba(239, 68, 68, 0.35)', text: '#f87171', dot: '#ef4444' },
+  general: { bg: 'rgba(16, 185, 129, 0.07)', border: 'rgba(16, 185, 129, 0.35)', text: '#34d399', dot: '#10b981' },
+}
+
+function getCategory(cap: Capsule): string {
+  if (cap.file_path) {
+    const norm = cap.file_path.replace(/\\/g, '/')
+    if (norm.includes('capsules/code/python') || norm.includes('code/python')) return 'code/python'
+    if (norm.includes('capsules/code/typescript') || norm.includes('code/typescript') || norm.includes('code/ts')) return 'code/typescript'
+    const match = norm.match(/capsules\/([^/]+)/)
+    if (match && match[1] && !match[1].endsWith('.md')) return match[1]
+  }
+  if (cap.tags?.includes('code')) {
+    if (cap.tags?.includes('python')) return 'code/python'
+    if (cap.tags?.includes('typescript') || cap.tags?.includes('ts')) return 'code/typescript'
+    return 'code'
+  }
+  if (cap.tags?.includes('architecture')) return 'architecture'
+  if (cap.tags?.includes('benchmark') || cap.tags?.includes('benchmarks')) return 'benchmarks'
+  if (cap.tags?.includes('security')) return 'security'
+  if (cap.tags?.includes('agent') || cap.tags?.includes('agents')) return 'agents'
+  return 'general'
+}
+
+// 2D Convex Hull calculation (Monotone Chain)
+function crossProduct(o: Point, a: Point, b: Point): number {
+  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+}
+
+function computeConvexHull(points: Point[]): Point[] {
+  if (points.length <= 2) return points
+  const sorted = [...points].sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x))
+  const lower: Point[] = []
+  for (const p of sorted) {
+    while (lower.length >= 2 && crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+      lower.pop()
+    }
+    lower.push(p)
+  }
+  const upper: Point[] = []
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i]
+    while (upper.length >= 2 && crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+      upper.pop()
+    }
+    upper.push(p)
+  }
+  lower.pop()
+  upper.pop()
+  return lower.concat(upper)
+}
+
 export function RelationshipGraph({
   capsules,
   onSelectCapsule,
@@ -61,8 +126,11 @@ export function RelationshipGraph({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [graphMode, setGraphMode] = useState<'all' | 'knowledge' | 'code'>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [showHulls, setShowHulls] = useState(true)
+  const [showMiniMap, setShowMiniMap] = useState(true)
   const [isLinking, setIsLinking] = useState(false)
   const [targetCapId, setTargetCapId] = useState('')
   const [relType, setRelType] = useState('relates_to')
@@ -72,6 +140,7 @@ export function RelationshipGraph({
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const miniMapCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const nodesRef = useRef<GraphNode[]>([])
   const isDraggingRef = useRef<string | null>(null)
   const isPanningRef = useRef(false)
@@ -128,15 +197,34 @@ export function RelationshipGraph({
     }
   }, [capsules])
 
+  // Scope visible capsules by mode and folder category
   const visibleCapsules = useMemo(() => {
+    let result = capsules
     if (graphMode === 'knowledge') {
-      return capsules.filter((c) => !c.tags?.includes('code'))
+      result = result.filter((c) => !c.tags?.includes('code'))
+    } else if (graphMode === 'code') {
+      result = result.filter((c) => c.tags?.includes('code'))
     }
-    if (graphMode === 'code') {
-      return capsules.filter((c) => c.tags?.includes('code'))
+    if (selectedCategory !== 'all') {
+      result = result.filter((c) => getCategory(c) === selectedCategory)
     }
-    return capsules
-  }, [capsules, graphMode])
+    return result
+  }, [capsules, graphMode, selectedCategory])
+
+  // Compute category counts for folder filter pills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: capsules.length }
+    capsules.forEach((c) => {
+      const cat = getCategory(c)
+      counts[cat] = (counts[cat] || 0) + 1
+    })
+    return counts
+  }, [capsules])
+
+  const availableCategories = useMemo(() => {
+    const cats = Object.keys(categoryCounts).filter((k) => k !== 'all')
+    return ['all', ...cats.sort()]
+  }, [categoryCounts])
 
   // Initialize nodes layout dynamically
   useEffect(() => {
@@ -152,12 +240,14 @@ export function RelationshipGraph({
       const isClass = cap.tags?.includes('class') || cap.tags?.includes('interface')
       const isFunction = cap.tags?.includes('function')
       const nodeRadius = isFile ? 24 : isClass ? 21 : isFunction ? 17 : 20
+      const cat = getCategory(cap)
 
       return {
         id: cap.id,
         topic: cap.topic,
         confidence: cap.confidence || 'medium',
         tags: cap.tags || [],
+        category: cat,
         x: existing ? existing.x : center.x + radius * Math.cos(angle) + (Math.random() * 60 - 30),
         y: existing ? existing.y : center.y + radius * Math.sin(angle) + (Math.random() * 60 - 30),
         vx: 0,
@@ -270,8 +360,8 @@ export function RelationshipGraph({
         node.x += node.vx
         node.y += node.vy
 
-        node.x = Math.max(25, Math.min(width - 25, node.x))
-        node.y = Math.max(25, Math.min(height - 25, node.y))
+        node.x = Math.max(35, Math.min(width - 35, node.x))
+        node.y = Math.max(35, Math.min(height - 35, node.y))
       })
     }
 
@@ -286,22 +376,100 @@ export function RelationshipGraph({
       // Draw subtle grid
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)'
       ctx.lineWidth = 1
-      for (let x = -500; x < canvas.width + 500; x += 40) {
+      for (let x = -600; x < canvas.width + 600; x += 40) {
         ctx.beginPath()
-        ctx.moveTo(x, -500)
-        ctx.lineTo(x, canvas.height + 500)
+        ctx.moveTo(x, -600)
+        ctx.lineTo(x, canvas.height + 600)
         ctx.stroke()
       }
-      for (let y = -500; y < canvas.height + 500; y += 40) {
+      for (let y = -600; y < canvas.height + 600; y += 40) {
         ctx.beginPath()
-        ctx.moveTo(-500, y)
-        ctx.lineTo(canvas.width + 500, y)
+        ctx.moveTo(-600, y)
+        ctx.lineTo(canvas.width + 600, y)
         ctx.stroke()
       }
 
       const nodes = nodesRef.current
 
-      // Draw Edges
+      // 1. Draw Directory Clustering Convex Hulls
+      if (showHulls) {
+        const clusters: Record<string, GraphNode[]> = {}
+        nodes.forEach((n) => {
+          clusters[n.category] = clusters[n.category] || []
+          clusters[n.category].push(n)
+        })
+
+        Object.entries(clusters).forEach(([category, cNodes]) => {
+          if (cNodes.length === 0) return
+          const style = CLUSTER_STYLES[category] || CLUSTER_STYLES.general
+          const padding = 36
+
+          if (cNodes.length === 1) {
+            const n = cNodes[0]
+            ctx.beginPath()
+            ctx.arc(n.x, n.y, n.radius + padding, 0, Math.PI * 2)
+            ctx.fillStyle = style.bg
+            ctx.fill()
+            ctx.strokeStyle = style.border
+            ctx.lineWidth = 1.2
+            ctx.setLineDash([4, 4])
+            ctx.stroke()
+            ctx.setLineDash([])
+
+            ctx.font = 'bold 10px -apple-system, sans-serif'
+            ctx.fillStyle = style.text
+            ctx.textAlign = 'center'
+            ctx.fillText(`📁 ${category} (1)`, n.x, n.y - n.radius - padding - 6)
+            return
+          }
+
+          // Sample 8 perimeter points around each node
+          const expandedPoints: Point[] = []
+          cNodes.forEach((n) => {
+            const r = n.radius + padding
+            for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+              expandedPoints.push({
+                x: n.x + Math.cos(a) * r,
+                y: n.y + Math.sin(a) * r,
+              })
+            }
+          })
+
+          const hull = computeConvexHull(expandedPoints)
+          if (hull.length >= 3) {
+            ctx.beginPath()
+            ctx.moveTo((hull[0].x + hull[hull.length - 1].x) / 2, (hull[0].y + hull[hull.length - 1].y) / 2)
+            for (let i = 0; i < hull.length; i++) {
+              const curr = hull[i]
+              const next = hull[(i + 1) % hull.length]
+              const midX = (curr.x + next.x) / 2
+              const midY = (curr.y + next.y) / 2
+              ctx.quadraticCurveTo(curr.x, curr.y, midX, midY)
+            }
+            ctx.closePath()
+
+            ctx.fillStyle = style.bg
+            ctx.fill()
+            ctx.strokeStyle = style.border
+            ctx.lineWidth = 1.5
+            ctx.setLineDash([5, 5])
+            ctx.stroke()
+            ctx.setLineDash([])
+
+            let topPoint = hull[0]
+            hull.forEach((p) => {
+              if (p.y < topPoint.y) topPoint = p
+            })
+
+            ctx.font = 'bold 11px -apple-system, sans-serif'
+            ctx.fillStyle = style.text
+            ctx.textAlign = 'center'
+            ctx.fillText(`📁 ${category} (${cNodes.length})`, topPoint.x, topPoint.y - 8)
+          }
+        })
+      }
+
+      // 2. Draw Edges
       filteredEdges.forEach((edge) => {
         const fromNode = nodes.find((n) => n.id === edge.from)
         const toNode = nodes.find((n) => n.id === edge.to)
@@ -318,7 +486,7 @@ export function RelationshipGraph({
           ? edgeColor
           : selectedNodeId
           ? 'rgba(255, 255, 255, 0.06)'
-          : `${edgeColor}99` // Vibrant semi-opaque color matching relationship type
+          : `${edgeColor}99`
         ctx.lineWidth = isHighlighted ? 4 : 2.5
         ctx.stroke()
 
@@ -348,7 +516,7 @@ export function RelationshipGraph({
         ctx.fill()
       })
 
-      // Draw Nodes
+      // 3. Draw Nodes
       nodes.forEach((node) => {
         const isSelected = selectedNodeId === node.id
         const isHovered = hoveredNodeId === node.id
@@ -426,6 +594,41 @@ export function RelationshipGraph({
 
       ctx.restore()
 
+      // 4. Render Mini-Map Radar
+      if (showMiniMap && miniMapCanvasRef.current) {
+        const miniCanvas = miniMapCanvasRef.current
+        const mctx = miniCanvas.getContext('2d')
+        if (mctx) {
+          mctx.clearRect(0, 0, miniCanvas.width, miniCanvas.height)
+
+          const mw = miniCanvas.width
+          const mh = miniCanvas.height
+
+          // Draw node dots on mini-map
+          nodes.forEach((n) => {
+            const mx = (n.x / canvas.width) * mw
+            const my = (n.y / canvas.height) * mh
+            mctx.beginPath()
+            mctx.arc(mx, my, 2.5, 0, Math.PI * 2)
+            const style = CLUSTER_STYLES[n.category] || CLUSTER_STYLES.general
+            mctx.fillStyle = style.dot
+            mctx.fill()
+          })
+
+          // Draw Viewport Camera Box
+          const viewX = (-panOffsetRef.current.x / zoomLevel / canvas.width) * mw
+          const viewY = (-panOffsetRef.current.y / zoomLevel / canvas.height) * mh
+          const viewW = (canvas.width / zoomLevel / canvas.width) * mw
+          const viewH = (canvas.height / zoomLevel / canvas.height) * mh
+
+          mctx.strokeStyle = '#38bdf8'
+          mctx.lineWidth = 1.5
+          mctx.fillStyle = 'rgba(56, 189, 248, 0.12)'
+          mctx.fillRect(viewX, viewY, viewW, viewH)
+          mctx.strokeRect(viewX, viewY, viewW, viewH)
+        }
+      }
+
       if (isRunning) {
         updatePhysics()
         animFrameRef.current = requestAnimationFrame(render)
@@ -438,7 +641,7 @@ export function RelationshipGraph({
       isRunning = false
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     }
-  }, [filteredEdges, selectedNodeId, hoveredNodeId, connectedEdges, searchQuery, zoomLevel])
+  }, [filteredEdges, selectedNodeId, hoveredNodeId, connectedEdges, searchQuery, zoomLevel, showHulls, showMiniMap])
 
   // Get accurate coordinates taking CSS client scaling into account
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -450,7 +653,6 @@ export function RelationshipGraph({
     const clientX = (e.clientX - rect.left) * scaleX
     const clientY = (e.clientY - rect.top) * scaleY
 
-    // Invert zoom and pan
     const x = (clientX - panOffsetRef.current.x) / zoomLevel
     const y = (clientY - panOffsetRef.current.y) / zoomLevel
     return { x, y }
@@ -471,7 +673,6 @@ export function RelationshipGraph({
       const cap = capsules.find((c) => c.id === clicked.id)
       if (cap && onSelectCapsule) onSelectCapsule(cap)
     } else {
-      // Clicked on empty space: deselect or pan
       setSelectedNodeId(null)
       isPanningRef.current = true
       panStartRef.current = { x: e.clientX - panOffsetRef.current.x, y: e.clientY - panOffsetRef.current.y }
@@ -510,6 +711,22 @@ export function RelationshipGraph({
     e.preventDefault()
     const delta = e.deltaY > 0 ? -0.1 : 0.1
     setZoomLevel((prev) => Math.max(0.5, Math.min(2.5, prev + delta)))
+  }
+
+  const handleMiniMapClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const miniCanvas = miniMapCanvasRef.current
+    const mainCanvas = canvasRef.current
+    if (!miniCanvas || !mainCanvas) return
+    const rect = miniCanvas.getBoundingClientRect()
+    const mx = e.clientX - rect.left
+    const my = e.clientY - rect.top
+    const targetX = (mx / rect.width) * mainCanvas.width
+    const targetY = (my / rect.height) * mainCanvas.height
+
+    panOffsetRef.current = {
+      x: mainCanvas.width / 2 - targetX * zoomLevel,
+      y: mainCanvas.height / 2 - targetY * zoomLevel,
+    }
   }
 
   const handleCreateLink = async (e: React.FormEvent) => {
@@ -564,7 +781,7 @@ export function RelationshipGraph({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '14px',
+            marginBottom: '10px',
             flexWrap: 'wrap',
             gap: '12px',
           }}
@@ -691,6 +908,48 @@ export function RelationshipGraph({
               <option value="contract_http">contract_http</option>
             </select>
 
+            {/* Toggle Convex Hulls */}
+            <button
+              onClick={() => setShowHulls(!showHulls)}
+              style={{
+                background: showHulls ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+                border: showHulls ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                color: showHulls ? '#38bdf8' : '#94a3b8',
+                borderRadius: '9999px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer',
+              }}
+              title="Toggle Directory Cluster Bounding Shapes"
+            >
+              <Layers size={13} /> Clusters
+            </button>
+
+            {/* Toggle Mini-Map */}
+            <button
+              onClick={() => setShowMiniMap(!showMiniMap)}
+              style={{
+                background: showMiniMap ? 'rgba(16, 185, 129, 0.2)' : '#1e293b',
+                border: showMiniMap ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                color: showMiniMap ? '#10b981' : '#94a3b8',
+                borderRadius: '9999px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer',
+              }}
+              title="Toggle Radar Mini-Map"
+            >
+              <MapIcon size={13} /> Radar
+            </button>
+
             {/* Zoom Controls */}
             <div style={{ display: 'flex', background: '#0f172a', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(255,255,255,0.1)' }}>
               <button
@@ -752,34 +1011,130 @@ export function RelationshipGraph({
           </div>
         </div>
 
-        {/* Dynamic Responsive Canvas */}
+        {/* Directory / Folder Category Filter Pills */}
         <div
           style={{
-            flex: 1,
-            overflow: 'hidden',
-            borderRadius: '12px',
-            background: '#050811',
-            border: '1px solid rgba(255,255,255,0.06)',
-            position: 'relative',
+            display: 'flex',
+            gap: '8px',
+            alignItems: 'center',
+            marginBottom: '12px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
           }}
         >
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Folder size={12} /> FOLDERS:
+          </span>
+          {availableCategories.map((cat) => {
+            const isSelected = selectedCategory === cat
+            const style = CLUSTER_STYLES[cat] || CLUSTER_STYLES.general
+            const count = categoryCounts[cat] || 0
+            return (
+              <button
+                key={cat}
+                onClick={() => {
+                  setSelectedCategory(cat)
+                  setSelectedNodeId(null)
+                }}
+                style={{
+                  background: isSelected ? style.bg : '#0b0f19',
+                  border: isSelected ? `1px solid ${style.border}` : '1px solid rgba(255,255,255,0.08)',
+                  color: isSelected ? style.text : '#94a3b8',
+                  borderRadius: '9999px',
+                  padding: '3px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: cat === 'all' ? '#cbd5e1' : style.dot,
+                  }}
+                />
+                {cat === 'all' ? 'All' : cat}
+                <span style={{ opacity: 0.65, fontSize: '0.7rem' }}>({count})</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Main Canvas Viewport */}
+        <div style={{ flex: 1, position: 'relative', width: '100%', minHeight: '520px' }}>
           <canvas
             ref={canvasRef}
             width={1000}
-            height={620}
+            height={650}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onWheel={handleWheel}
             style={{
               width: '100%',
               height: '100%',
-              minHeight: '580px',
               display: 'block',
+              borderRadius: '10px',
+              background: '#040711',
             }}
           />
+
+          {/* Mini-Map Radar Overlay */}
+          {showMiniMap && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                right: 16,
+                width: 170,
+                height: 110,
+                background: 'rgba(8, 12, 22, 0.88)',
+                backdropFilter: 'blur(8px)',
+                borderRadius: '10px',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+                overflow: 'hidden',
+                zIndex: 10,
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  left: 8,
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  color: '#38bdf8',
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
+                  pointerEvents: 'none',
+                }}
+              >
+                Radar Mini-Map
+              </div>
+              <canvas
+                ref={miniMapCanvasRef}
+                width={170}
+                height={110}
+                onClick={handleMiniMapClick}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'block',
+                  cursor: 'crosshair',
+                }}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Legend */}
+        {/* Bottom Legend */}
         <div
           style={{
             display: 'flex',
@@ -940,7 +1295,7 @@ export function RelationshipGraph({
                       cursor: 'pointer',
                     }}
                   >
-                    Save Link
+                    Save
                   </button>
                   <button
                     type="button"
@@ -949,7 +1304,7 @@ export function RelationshipGraph({
                       background: '#334155',
                       color: '#fff',
                       border: 'none',
-                      padding: '6px 10px',
+                      padding: '6px 12px',
                       borderRadius: '6px',
                       fontSize: '0.78rem',
                       cursor: 'pointer',
@@ -958,94 +1313,67 @@ export function RelationshipGraph({
                     Cancel
                   </button>
                 </div>
+                {statusMsg && (
+                  <div style={{ fontSize: '0.75rem', color: statusMsg.includes('Failed') ? '#ef4444' : '#10b981' }}>
+                    {statusMsg}
+                  </div>
+                )}
               </form>
             )}
 
-            {statusMsg && (
-              <div style={{ fontSize: '0.8rem', color: '#34d399' }}>{statusMsg}</div>
-            )}
-
-            {/* Connected Relationships */}
-            <div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Connected Relationships ({connectedEdges.length})
+            {/* Outgoing & Incoming Relationship Lineage */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f8fafc', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+                Active Graph Connections ({connectedEdges.length})
               </div>
               {connectedEdges.length === 0 ? (
-                <div style={{ fontSize: '0.82rem', color: '#64748b', fontStyle: 'italic' }}>
-                  No relationships linked yet. Click "Link Node" above.
-                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>No connections for this capsule.</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
                   {connectedEdges.map((e) => {
                     const isOutgoing = e.from === selectedCapsule.id
                     const otherId = isOutgoing ? e.to : e.from
                     const otherCap = capsules.find((c) => c.id === otherId)
+                    const color = REL_COLORS[e.type] || '#38bdf8'
                     return (
                       <div
                         key={e.id}
-                        onClick={() => otherCap && setSelectedNodeId(otherCap.id)}
+                        onClick={() => {
+                          if (otherCap) {
+                            setSelectedNodeId(otherCap.id)
+                            if (onSelectCapsule) onSelectCapsule(otherCap)
+                          }
+                        }}
                         style={{
-                          background: '#141c2e',
-                          padding: '8px 12px',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          padding: '8px 10px',
                           borderRadius: '8px',
-                          border: '1px solid rgba(255,255,255,0.08)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
                           cursor: 'pointer',
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          fontSize: '0.82rem',
+                          flexDirection: 'column',
+                          gap: '3px',
                           transition: 'background 0.15s ease',
                         }}
                       >
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '190px' }}>
-                          <span style={{ color: isOutgoing ? '#38bdf8' : '#c084fc', fontWeight: 700 }}>
-                            {isOutgoing ? '→ ' : '← '}
-                          </span>
-                          <span style={{ color: '#f1f5f9' }}>{otherCap?.topic || otherId.slice(0, 8)}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                          <span style={{ color, fontWeight: 700 }}>{isOutgoing ? `➔ ${e.type}` : `◀ ${e.type}`}</span>
+                          <span style={{ color: '#64748b' }}>{isOutgoing ? 'outgoing' : 'incoming'}</span>
                         </div>
-                        <span
-                          style={{
-                            fontSize: '0.72rem',
-                            color: REL_COLORS[e.type] || '#38bdf8',
-                            background: 'rgba(255,255,255,0.06)',
-                            padding: '2px 7px',
-                            borderRadius: '4px',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {e.type}
-                        </span>
+                        <div style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 500 }}>
+                          {otherCap ? otherCap.topic : otherId}
+                        </div>
                       </div>
                     )
                   })}
                 </div>
               )}
             </div>
-
-            {/* Content Preview */}
-            <div style={{ marginTop: '4px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>Content Preview</div>
-              <div
-                style={{
-                  fontSize: '0.8rem',
-                  color: '#94a3b8',
-                  background: '#070a12',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  maxHeight: '140px',
-                  overflowY: 'auto',
-                  lineHeight: '1.5',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                }}
-              >
-                {selectedCapsule.content}
-              </div>
-            </div>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '50px 10px', color: '#64748b', fontSize: '0.88rem', lineHeight: '1.6' }}>
-            Click on any node in the graph to inspect its relationship graph and link dependencies.<br/><br/>
-            <span style={{ fontSize: '0.78rem', color: '#475569' }}>Click empty canvas space to clear selection.</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', textAlign: 'center', gap: '8px' }}>
+            <Link2 size={32} style={{ opacity: 0.4 }} />
+            <div style={{ fontSize: '0.85rem' }}>Select any node to inspect details and traverse its graph lineage.</div>
           </div>
         )}
       </div>
