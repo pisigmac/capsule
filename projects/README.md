@@ -1,7 +1,7 @@
 ---
-created: 2026-10-01T04:47:51.066215+00:00
-id: 89f6fcc39d2f
-modified: 2026-10-01T04:47:51.066215+00:00
+created: 2026-10-01T08:35:09.790525+00:00
+id: 3f3331b05eca
+modified: 2026-10-01T08:35:09.790525+00:00
 source: daemon
 status: active
 tags:
@@ -274,6 +274,8 @@ Transform raw multi-language source code (Python, TypeScript/JavaScript, Go, Rus
 - **AST Structural Parsing**: Extracts class contracts, interface hierarchies, functions/methods, type models, and public APIs.
 - **Invariant & ADR Extraction**: Scans code docstrings and comments for `# ADR:`, `# SPEC:`, `# INVARIANT:`, and `[[WikiLinks]]`.
 - **Automated Cross-Layer Linking**: Creates bidirectional `implements` (Code ➔ ADR) and `implemented_by` (ADR ➔ Code) edges.
+- **Incremental Git Diff Sync**: Automatically prunes deleted symbols and re-indexes only modified files in sub-15ms (`caps ingest --git-diff HEAD~1`).
+- **Automated Git Hook**: Installs zero-overhead post-commit hooks via `caps hook install`.
 - **Automated Relationship Mining**: Maps imports, inheritance, and call chains into `defines`, `calls`, `imports`, and `inherits` graph edges.
 - **Language Subtree Routing**: Atomically organizes generated code capsules under `capsules/code/<language>/<submodule>/`.
 *(See [Codebase-to-Capsule Ingestion Guide](docs/CODEBASE_INGESTION.md) for full details.)*
@@ -285,6 +287,12 @@ caps ingest ./services/ --code
 # Ingest specific language subtrees
 caps ingest ./frontend/src/ --code
 caps ingest ./pkg/store/ --code
+
+# Incremental zero-overhead sync from git commits (sub-15ms)
+caps ingest --git-diff HEAD~1
+
+# Install post-commit Git hook for automated continuous sync
+caps hook install
 ```
 
 ---

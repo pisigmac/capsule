@@ -29,6 +29,9 @@ export type ComposeCapsuleItem = {
   file_path?: string | null
   source?: string | null
   reason?: string
+  via_graph_edge?: string | null
+  connected_to?: string | null
+  affinity_score?: number | null
 }
 
 export type ComposeResult = {
@@ -40,6 +43,7 @@ export type ComposeResult = {
   excluded_capsules?: ComposeCapsuleItem[]
   total_candidates?: number
   max_tokens?: number
+  graph_expansion?: boolean
 }
 
 export type TagCount = { name: string; count: number }
@@ -112,6 +116,7 @@ export const api = {
     confidence_min?: string
     max_tokens?: number
     mode?: 'fts' | 'semantic' | 'hybrid'
+    graph_expansion?: boolean
   }) => request<ComposeResult>('/compose', { method: 'POST', body: JSON.stringify(payload) }),
   stale: (days = 90) => request<{ count: number; capsules: Capsule[] }>(`/stale?days=${days}`),
 }

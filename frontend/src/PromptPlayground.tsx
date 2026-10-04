@@ -7,6 +7,7 @@ import {
   Copy,
   Check,
   Layers,
+  Link2,
   AlertCircle,
   Sliders,
   Download,
@@ -41,6 +42,7 @@ export function PromptPlayground({ initialTags = [], onSelectCapsule }: PromptPl
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [availableTags, setAvailableTags] = useState<TagCount[]>(initialTags)
   const [tagInput, setTagInput] = useState('')
+  const [graphExpansion, setGraphExpansion] = useState(true)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -77,6 +79,7 @@ export function PromptPlayground({ initialTags = [], onSelectCapsule }: PromptPl
         confidence_min: confidenceMin,
         max_tokens: maxTokens,
         mode: mode,
+        graph_expansion: graphExpansion,
       })
       setComposed(result)
     } catch (err) {
@@ -84,7 +87,7 @@ export function PromptPlayground({ initialTags = [], onSelectCapsule }: PromptPl
     } finally {
       setLoading(false)
     }
-  }, [query, selectedTags, confidenceMin, maxTokens, mode])
+  }, [query, selectedTags, confidenceMin, maxTokens, mode, graphExpansion])
 
   // Run initial compose and debounced auto-compose
   useEffect(() => {
@@ -196,6 +199,29 @@ export function PromptPlayground({ initialTags = [], onSelectCapsule }: PromptPl
               <RefreshCw size={14} className={loading ? 'spin' : ''} />
               {loading ? 'Composing...' : 'Re-Compose'}
             </button>
+            <button
+              type="button"
+              onClick={() => setGraphExpansion(!graphExpansion)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: graphExpansion ? '#ec4899' : 'rgba(255, 255, 255, 0.1)',
+                background: graphExpansion ? 'rgba(236, 72, 153, 0.18)' : 'rgba(0, 0, 0, 0.3)',
+                color: graphExpansion ? '#f472b6' : '#94a3b8',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.2s ease',
+              }}
+              title="Graph-Aware Multi-Hop Affinity Expansion (Pillar 1)"
+            >
+              <Link2 size={13} />
+              Graph Expansion: {graphExpansion ? 'ON' : 'OFF'}
+            </button>
             <label
               style={{
                 display: 'flex',
@@ -204,7 +230,7 @@ export function PromptPlayground({ initialTags = [], onSelectCapsule }: PromptPl
                 fontSize: '0.8rem',
                 color: 'var(--text-secondary)',
                 cursor: 'pointer',
-                marginLeft: '6px',
+                marginLeft: '4px',
               }}
             >
               <input
@@ -728,6 +754,25 @@ export function PromptPlayground({ initialTags = [], onSelectCapsule }: PromptPl
                             >
                               {cap.confidence}
                             </span>
+                            {cap.via_graph_edge && (
+                              <span
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(236, 72, 153, 0.2)',
+                                  color: '#f472b6',
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                }}
+                              >
+                                <Link2 size={11} />
+                                {cap.via_graph_edge}
+                                {cap.connected_to ? ` (${cap.connected_to.slice(0, 25)})` : ''}
+                              </span>
+                            )}
                             {cap.source && (
                               <span style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'monospace' }}>
                                 {cap.source}

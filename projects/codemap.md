@@ -1,7 +1,7 @@
 ---
-created: 2026-10-01T04:47:51.066875+00:00
-id: 27d137a5d801
-modified: 2026-10-01T05:00:00.000000+00:00
+created: 2026-10-01T08:35:09.791637+00:00
+id: 86d10ddee243
+modified: 2026-10-01T08:35:09.791637+00:00
 source: daemon
 status: active
 tags:
@@ -13,6 +13,8 @@ type: codemap
 # Codemap: capsule
 
 **Source:** `docs/CODEMAP.md`
+
+# Codemap
 
 | Path | Role |
 | --- | --- |
@@ -47,3 +49,4 @@ type: codemap
 | `scripts/e2e_curl.sh` | End-to-end HTTP API verification script |
 | `scripts/start_all.sh` / `stop_all.sh` | Project service lifecycle management scripts |
 | `capsules/` | Canonical markdown knowledge and code files on disk |
+

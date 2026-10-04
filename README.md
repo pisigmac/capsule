@@ -161,6 +161,35 @@ caps search "JWT authentication"
 caps compose --query "database concurrency and auth" --budget 400
 ```
 
+### 4. TypeScript client
+
+```bash
+npm install kapsule-ai
+```
+
+```typescript
+import { KapsuleClient } from "kapsule-ai";
+
+const kapsule = new KapsuleClient({ baseUrl: "http://127.0.0.1:9100" });
+```
+
+The client talks to the Capsule HTTP API. See `sdk/typescript`.
+
+### 5. Python client
+
+```bash
+pip install capsule-ai
+```
+
+```python
+from capsule_ai import KapsuleClient
+
+with KapsuleClient(base_url="http://127.0.0.1:9100") as kapsule:
+    matches = kapsule.search("JWT authentication")
+```
+
+This is the thin HTTP client in `sdk/python`. `pip install kapsule` remains the engine and CLI.
+
 ---
 
 ## 🔌 Framework Adapters (Drop-in Agent Memory)

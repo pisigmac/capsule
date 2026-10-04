@@ -1,7 +1,7 @@
 ---
-created: 2026-10-01T04:47:51.079618+00:00
-id: 647be6fcdebc
-modified: 2026-10-01T04:47:51.079618+00:00
+created: 2026-10-01T08:35:09.819909+00:00
+id: 141964839849
+modified: 2026-10-01T08:35:09.819909+00:00
 source: daemon
 status: active
 tags:
@@ -77,6 +77,9 @@ type: structure
     services/search/
       __init__.py
       engine.py
+    services/analysis/
+      __init__.py
+      drift_detector.py
     services/mcp/
       __init__.py
       server.py
@@ -96,6 +99,7 @@ type: structure
       icons.svg
     frontend/src/
       App.tsx
+      PromptPlayground.tsx
       RelationshipGraph.tsx
       api.ts
       index.css
@@ -198,20 +202,16 @@ type: structure
     test_code_ts_parser.py
     test_crewai_adapter.py
     test_demo.py
+    test_drift_detector.py
     test_e2e.py
     test_future.py
     test_git_harvester.py
+    test_git_incremental_ingest.py
     test_ingest.py
     test_langchain_adapter.py
     test_llamaindex_adapter.py
     test_mcp_installer.py
-    test_multilang_parsers.py
-    test_obsidian_sync.py
-    ... (9 more)
+    ... (11 more)
   templates/
     meeting.md
-    person.md
-    project.md
-  sessions/
-  decisions/
 ```

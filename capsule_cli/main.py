@@ -211,8 +211,11 @@ def link(from_id, to_id, rel_type):
 @click.option("--max-tokens", "-m", default=4000, help="Max token budget")
 @click.option("--output", "-o", type=click.Path(), help="Write to file instead of stdout")
 @click.option("--mode", type=click.Choice(["fts", "semantic", "hybrid"]), default="fts")
-def compose(tags, query, confidence_min, max_tokens, output, mode):
-    """Compose a context window from capsules."""
+@click.option("--graph/--no-graph", default=True, help="Enable graph-aware dependency closure expansion")
+@click.option("--hops", default=1, type=int, help="Max graph expansion hops (default: 1)")
+@click.option("--include-superseded", is_flag=True, default=False, help="Include deprecated or superseded capsules")
+def compose(tags, query, confidence_min, max_tokens, output, mode, graph, hops, include_superseded):
+    """Compose a token-budgeted context window from capsules with graph-aware affinity."""
     db = session()
     try:
         engine = SearchEngine(db)
@@ -222,6 +225,9 @@ def compose(tags, query, confidence_min, max_tokens, output, mode):
             confidence_min=confidence_min,
             max_tokens=max_tokens,
             mode=mode,
+            graph_expansion=graph,
+            max_hops=hops,
+            include_superseded=include_superseded,
         )
         context = result["context"]
         if output:
@@ -230,8 +236,9 @@ def compose(tags, query, confidence_min, max_tokens, output, mode):
         else:
             syntax = Syntax(context or "[empty]", "markdown", theme="monokai", line_numbers=True)
             console.print(Panel(syntax, title="Composed Context", border_style="green"))
+        graph_label = " (graph-expanded)" if result.get("graph_expansion") else ""
         console.print(
-            f"[dim]capsules={result['capsule_count']} tokens≈{result['token_estimate']} "
+            f"[dim]capsules={result['capsule_count']} tokens≈{result['token_estimate']}{graph_label} "
             f"truncated={result['truncated']}[/dim]"
         )
     finally:
@@ -1185,6 +1192,97 @@ def verify_drift(path, fail_on_violation, json_output, strict):
 
     if fail_on_violation and not report.is_passing(strict=strict):
         sys.exit(1)
+
+
+@cli.group("supersession")
+def supersession_group():
+    """Detect and manage architectural contradictions and supersession lineage."""
+    pass
+
+
+@supersession_group.command("scan")
+@click.option("--target", "-t", default=None, help="Target capsule ID to compare against the vault")
+@click.option("--min-confidence", "-c", default=0.5, type=float, help="Minimum confidence threshold (0.0 - 1.0)")
+@click.option("--apply", is_flag=True, help="Automatically create supersedes edges and deprecate older capsules")
+@click.option("--json", "json_output", is_flag=True, help="Output structured JSON report")
+def supersession_scan(target, min_confidence, apply, json_output):
+    """Scan vault for invariant contradictions and supersession opportunities."""
+    import json as json_lib
+    from services.analysis.supersession import InvariantSupersessionEngine
+    from services.store.store import CapsuleStore
+
+    db = session()
+    try:
+        store = CapsuleStore(db)
+        engine = InvariantSupersessionEngine(store)
+        report = engine.detect_contradictions(
+            target_capsule_id=target,
+            min_confidence=min_confidence,
+            apply_supersession=apply,
+        )
+        if apply:
+            db.commit()
+
+        if json_output:
+            click.echo(json_lib.dumps(report.to_dict(), indent=2))
+        else:
+            table = Table(title="🔄 Invariant Contradiction & Supersession Analysis", expand=True)
+            table.add_column("Type", style="cyan", width=20)
+            table.add_column("Confidence", style="bold", width=12)
+            table.add_column("Newer Capsule", style="green", width=25)
+            table.add_column("Older Capsule", style="yellow", width=25)
+            table.add_column("Reason", style="white")
+            table.add_column("Applied", style="magenta", width=10)
+
+            for f in report.findings:
+                conf_str = f"{int(f.confidence_score * 100)}%"
+                table.add_row(
+                    f.contradiction_type,
+                    conf_str,
+                    f"{f.newer_topic}\n[dim]{f.newer_capsule_id[:8]}[/dim]",
+                    f"{f.older_topic}\n[dim]{f.older_capsule_id[:8]}[/dim]",
+                    f.reason,
+                    "✓ Linked" if f.applied else "Pending",
+                )
+
+            console.print(table)
+            console.print(
+                f"\n[bold]Summary:[/bold] Analyzed [cyan]{report.total_analyzed}[/cyan] capsule pairs. "
+                f"Detected [yellow]{report.contradictions_found}[/yellow] contradictions / supersessions. "
+                f"Applied [green]{report.superseded_applied}[/green] graph linkages."
+            )
+    finally:
+        db.close()
+
+
+@supersession_group.command("resolve")
+@click.argument("newer_id")
+@click.argument("older_id")
+@click.option("--deprecate/--no-deprecate", default=True, help="Mark older capsule confidence as deprecated")
+def supersession_resolve(newer_id, older_id, deprecate):
+    """Explicitly link newer capsule superseding older capsule."""
+    from services.analysis.supersession import InvariantSupersessionEngine
+    from services.store.store import CapsuleStore
+
+    db = session()
+    try:
+        store = CapsuleStore(db)
+        engine = InvariantSupersessionEngine(store)
+        newer = resolve_capsule(db, newer_id)
+        older = resolve_capsule(db, older_id)
+        if not newer or not older:
+            console.print("[red]One or both capsules not found[/red]")
+            sys.exit(1)
+
+        result = engine.resolve_supersession(newer.id, older.id, deprecate_older=deprecate)
+        db.commit()
+        console.print(
+            f"[green]✓ Linked supersession:[/green] [cyan]{newer.topic}[/cyan] ({newer.id[:8]}) "
+            f"supersedes [yellow]{older.topic}[/yellow] ({older.id[:8]})"
+            + (" [dim](deprecated)[/dim]" if deprecate else "")
+        )
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
