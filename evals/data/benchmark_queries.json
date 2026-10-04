@@ -1,0 +1,130 @@
+[
+  {
+    "id": "Q1",
+    "query": "How does staging bypass JWT authentication, and what CI pipeline depends on it?",
+    "search_terms": "staging JWT bypass",
+    "domain": "Authentication & Continuous Integration",
+    "tags": [
+      "auth",
+      "ci"
+    ],
+    "required_facts": [
+      "Staging skips JWT verification when `X-Debug-Override` header is present",
+      "Mobile CI automation pipelines (Android/iOS integration suites) depend directly on the `X-Debug-Override` auth bypass"
+    ],
+    "keywords": [
+      "staging",
+      "JWT",
+      "X-Debug-Override",
+      "mobile",
+      "CI"
+    ],
+    "relevant_capsule_ids": [
+      "cap-auth-bypass",
+      "cap-auth-dep"
+    ]
+  },
+  {
+    "id": "Q2",
+    "query": "What are the database schema and search index requirements for SQLite and Postgres?",
+    "search_terms": "database SQLite Postgres",
+    "domain": "Storage Engines & Inverted Indexes",
+    "tags": [
+      "database"
+    ],
+    "required_facts": [
+      "Local Capsule uses SQLite with FTS5 porter stemmer",
+      "join virtual table capsule_search on internal integer rowid",
+      "PostgreSQL 16 tsvector generated columns with GIN indexes"
+    ],
+    "keywords": [
+      "database",
+      "SQLite",
+      "FTS5",
+      "Postgres",
+      "tsvector",
+      "GIN",
+      "rowid"
+    ],
+    "relevant_capsule_ids": [
+      "cap-sqlite-fts",
+      "cap-postgres-gin"
+    ]
+  },
+  {
+    "id": "Q3",
+    "query": "How does content deduplication work when an agent submits a duplicate fact, and what happens on update conflict?",
+    "search_terms": "content deduplication conflict",
+    "domain": "Deterministic Hashing & Concurrency",
+    "tags": [
+      "dedup"
+    ],
+    "required_facts": [
+      "Capsule normalizes whitespace and calculates SHA-256 content hashes on create",
+      "merges tags and returns HTTP 200 with deduped: true",
+      "raises HTTP 409 Conflict to prevent duplicate facts"
+    ],
+    "keywords": [
+      "deduplication",
+      "SHA-256",
+      "HTTP 200",
+      "deduped: true",
+      "HTTP 409 Conflict"
+    ],
+    "relevant_capsule_ids": [
+      "cap-content-dedup",
+      "cap-dedup-conflict"
+    ]
+  },
+  {
+    "id": "Q4",
+    "query": "How is the MCP server configured for stdio and HTTP, and what tools does it provide to agents?",
+    "search_terms": "MCP server tools",
+    "domain": "Autonomous Agent Protocols & Tools",
+    "tags": [
+      "mcp"
+    ],
+    "required_facts": [
+      "FastMCP server runs in two modes: default stdio",
+      "Streamable HTTP on port 9101",
+      "exposes 5 tools: search_capsules, compose_context, get_capsule, create_capsule, list_stale"
+    ],
+    "keywords": [
+      "MCP",
+      "stdio",
+      "HTTP",
+      "9101",
+      "search_capsules",
+      "compose_context",
+      "create_capsule"
+    ],
+    "relevant_capsule_ids": [
+      "cap-mcp-modes",
+      "cap-mcp-tools"
+    ]
+  },
+  {
+    "id": "Q5",
+    "query": "What happens if the search database is deleted, and how does the filesystem watchdog maintain sync?",
+    "search_terms": "database deleted sync",
+    "domain": "Database Recovery & Watchdog Daemons",
+    "tags": [
+      "sync",
+      "database"
+    ],
+    "required_facts": [
+      "If the database is deleted, Capsule reconciles and fully rebuilds all tables and tags from .capsule.md files",
+      "watchdog with 250ms debouncing to monitor CAPSULES_DIR"
+    ],
+    "keywords": [
+      "database is deleted",
+      "reconciles and fully rebuilds",
+      "watchdog",
+      "250ms debouncing"
+    ],
+    "relevant_capsule_ids": [
+      "cap-index-rebuild",
+      "cap-sync-watchdog"
+    ]
+  }
+]

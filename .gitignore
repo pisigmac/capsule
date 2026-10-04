@@ -28,20 +28,34 @@ wheels/
 .env.local
 
 # Docker
-data/
+/data/
 capsule-data/
 *.sqlite3
 *.db
+!evals/data/
 
-# Frontend (Node)
+# Frontend & Extensions (Node)
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
 frontend/*.local
-
+node_modules/
+**/node_modules/
+extensions/**/dist/
+extensions/**/node_modules/
+*.caps.md
 # OS
 .DS_Store
 
 # AgentDrive
 .vault/
 .session
+
+# Research Paper & Drafts
+paper/
+next_strategy.md
+backlog.d/
+landing/
+docs/SOCIAL_MEDIA_30_DAYS.md
+docs/superpowers/
+

@@ -34,7 +34,14 @@ class CapsuleConfig:
 
     @property
     def capsules_dir(self) -> Path:
-        return Path(os.getenv("CAPSULES_DIR", "./capsules")).expanduser()
+        explicit = os.getenv("CAPS_DIR") or os.getenv("CAPSULES_DIR")
+        if explicit:
+            return Path(explicit).expanduser()
+        if Path("./caps").exists():
+            return Path("./caps")
+        if Path("./capsules").exists():
+            return Path("./capsules")
+        return Path("./caps")
 
     @property
     def shared_dir(self) -> Path:

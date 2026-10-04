@@ -166,10 +166,15 @@ class CapsuleParser:
             fm["relationships"] = [
                 {"to": rel.to_id, "type": rel.relationship_type} for rel in capsule.relationships
             ]
+        if capsule.raw_frontmatter and isinstance(capsule.raw_frontmatter, dict):
+            for k, v in capsule.raw_frontmatter.items():
+                if k not in fm and v is not None:
+                    fm[k] = v
         fm = {k: v for k, v in fm.items() if v is not None}
 
         yaml_str = yaml.dump(fm, default_flow_style=False, sort_keys=False, allow_unicode=True)
         return f"---\n{yaml_str}---\n\n{capsule.content.strip()}\n"
+
 
     def validate(self, text: str) -> List[str]:
         errors: List[str] = []

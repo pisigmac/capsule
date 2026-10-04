@@ -19,11 +19,31 @@ export type CapsuleList = {
   offset: number
 }
 
+export type ComposeCapsuleItem = {
+  id: string
+  topic: string
+  content: string
+  tags: string[]
+  confidence: string
+  token_estimate: number
+  file_path?: string | null
+  source?: string | null
+  reason?: string
+  via_graph_edge?: string | null
+  connected_to?: string | null
+  affinity_score?: number | null
+}
+
 export type ComposeResult = {
   context: string
   token_estimate: number
   capsule_count: number
   truncated: boolean
+  included_capsules?: ComposeCapsuleItem[]
+  excluded_capsules?: ComposeCapsuleItem[]
+  total_candidates?: number
+  max_tokens?: number
+  graph_expansion?: boolean
 }
 
 export type TagCount = { name: string; count: number }
@@ -49,6 +69,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
+export type Relationship = {
+  id: string
+  from_capsule_id: string
+  to_capsule_id: string
+  relationship_type: string
+  created_at: string
+}
+
+export type CapsuleRelationships = {
+  capsule_id: string
+  outgoing: Relationship[]
+  incoming: Relationship[]
+}
+
 export const api = {
   list: (tag?: string) =>
     request<CapsuleList>(`/capsules${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`),
@@ -64,7 +98,26 @@ export const api = {
   remove: (id: string) => request<void>(`/capsules/${id}`, { method: 'DELETE' }),
   archive: (id: string) => request<Capsule>(`/capsules/${id}/archive`, { method: 'POST' }),
   tags: () => request<TagCount[]>('/tags'),
-  compose: (payload: { query?: string; tags?: string[]; confidence_min?: string; max_tokens?: number }) =>
-    request<ComposeResult>('/compose', { method: 'POST', body: JSON.stringify(payload) }),
+  listRelationships: () => request<Relationship[]>('/relationships'),
+  relationships: (capsuleId: string) =>
+    request<CapsuleRelationships>(`/capsules/${capsuleId}/relationships`),
+  link: (from_id: string, to_id: string, relationship_type = 'relates_to') =>
+    request<Relationship>('/relationships', {
+      method: 'POST',
+      body: JSON.stringify({
+        from_capsule_id: from_id,
+        to_capsule_id: to_id,
+        relationship_type,
+      }),
+    }),
+  compose: (payload: {
+    query?: string
+    tags?: string[]
+    confidence_min?: string
+    max_tokens?: number
+    mode?: 'fts' | 'semantic' | 'hybrid'
+    graph_expansion?: boolean
+  }) => request<ComposeResult>('/compose', { method: 'POST', body: JSON.stringify(payload) }),
   stale: (days = 90) => request<{ count: number; capsules: Capsule[] }>(`/stale?days=${days}`),
 }
+

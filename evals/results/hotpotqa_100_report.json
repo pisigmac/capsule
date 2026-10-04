@@ -1,0 +1,28 @@
+{
+  "dataset": "HotpotQA (distractor validation split)",
+  "sample_size": 100,
+  "metrics": {
+    "prompt_tokens": {
+      "naive_mean": 402.95,
+      "capsule_mean": 271.42,
+      "savings_pct": 32.64,
+      "p_value": 1.972340512798014e-21
+    },
+    "fact_recall": {
+      "naive_mean": 64.4,
+      "capsule_mean": 68.27,
+      "delta": 3.87,
+      "p_value": 0.27328369342866066
+    },
+    "information_density": {
+      "naive_mean": 13.6,
+      "capsule_mean": 22.44,
+      "delta": 8.83,
+      "p_value": 7.666141248278378e-10
+    },
+    "latency_ms": {
+      "naive_mean": 0.75,
+      "capsule_mean": 10.99
+    }
+  }
+}

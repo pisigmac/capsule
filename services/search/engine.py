@@ -10,10 +10,21 @@ from sqlalchemy.orm import Session
 
 from ..embed import embedder as embed_mod
 from ..shared.config import config
-from ..shared.models import Capsule, Tag
+from ..shared.models import Capsule, CapsuleRelationship, Tag
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 CONFIDENCE_ORDER = {"hearsay": 0, "low": 1, "medium": 2, "high": 3}
+
+EDGE_WEIGHTS: Dict[str, float] = {
+    "depends_on": 1.5,
+    "prerequisite": 1.5,
+    "implements": 1.4,
+    "implemented_by": 1.4,
+    "defines": 1.2,
+    "calls": 1.2,
+    "supersedes": 1.1,
+    "relates_to": 1.0,
+}
 
 
 def estimate_tokens(value: str) -> int:
@@ -22,6 +33,12 @@ def estimate_tokens(value: str) -> int:
 
 
 def to_fts_query(raw: str) -> Optional[str]:
+    if not raw or not raw.strip():
+        return None
+    # If the caller provides an explicit boolean query with OR / AND, preserve it
+    trimmed = raw.strip()
+    if " OR " in trimmed or " AND " in trimmed:
+        return trimmed
     tokens = _TOKEN_RE.findall(raw)[:32]
     if not tokens:
         return None
@@ -268,6 +285,133 @@ class SearchEngine:
     ) -> List[Dict[str, Any]]:
         return self.search(query="", tags=tags, archived=False, limit=limit, offset=offset, match_all_tags=match_all)
 
+    def _get_superseded_map(self) -> Dict[str, str]:
+        """Returns mapping of superseded_capsule_id -> superseding_capsule_description."""
+        mapping: Dict[str, str] = {}
+        rels = (
+            self.db.query(CapsuleRelationship, Capsule)
+            .join(Capsule, Capsule.id == CapsuleRelationship.from_capsule_id)
+            .filter(CapsuleRelationship.relationship_type == "supersedes")
+            .all()
+        )
+        for rel, newer_cap in rels:
+            mapping[rel.to_capsule_id] = f"'{newer_cap.topic}' ({newer_cap.id[:8]})"
+        
+        # Also include capsules with confidence='deprecated'
+        dep_caps = self.db.query(Capsule).filter(Capsule.confidence == "deprecated", Capsule.archived.is_(False)).all()
+        for dc in dep_caps:
+            if dc.id not in mapping:
+                mapping[dc.id] = "Deprecated confidence status"
+        return mapping
+
+    def _expand_graph_affinity(
+        self,
+        candidates: List[Dict[str, Any]],
+        confidence_min: Optional[str] = None,
+        max_hops: int = 1,
+        affinity_weight: float = 0.5,
+        include_superseded: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """
+        Pillar 1 & 2: Graph-Aware Multi-Hop Affinity Propagation with Supersession Suppression.
+        Pulls in related dependencies (depends_on, implements, calls, defines) and boosts affinity
+        scores of candidate capsules that share typed graph edges with top-ranking nodes.
+        """
+        if not candidates or max_hops < 1:
+            return candidates
+
+        min_val = CONFIDENCE_ORDER.get(confidence_min, 0) if confidence_min else 0
+        superseded_map = {} if include_superseded else self._get_superseded_map()
+        candidate_map = {c["id"]: dict(c) for c in candidates if c["id"] not in superseded_map}
+        base_scores: Dict[str, float] = {
+            c["id"]: 1.0 / (rank + 1.0) for rank, c in enumerate(candidates) if c["id"] not in superseded_map
+        }
+        affinity_scores: Dict[str, float] = {c["id"]: 0.0 for c in candidates if c["id"] not in superseded_map}
+
+        # Seed initial top candidates (up to top 25) for graph expansion
+        seed_candidates = [c for c in candidates if c["id"] not in superseded_map][:25]
+
+        for seed in seed_candidates:
+            seed_id = seed["id"]
+            seed_topic = seed.get("topic", "Related Node")
+            seed_weight = base_scores.get(seed_id, 0.5)
+
+            # Query outgoing relationships
+            outgoing = (
+                self.db.query(CapsuleRelationship)
+                .filter(CapsuleRelationship.from_capsule_id == seed_id)
+                .all()
+            )
+
+            # Query incoming relationships
+            incoming = (
+                self.db.query(CapsuleRelationship)
+                .filter(CapsuleRelationship.to_capsule_id == seed_id)
+                .all()
+            )
+
+            # Process outgoing edges
+            for rel in outgoing:
+                target_id = rel.to_capsule_id
+                if not include_superseded and target_id in superseded_map:
+                    continue
+                w = EDGE_WEIGHTS.get(rel.relationship_type, 1.0) * seed_weight
+                if target_id in candidate_map:
+                    affinity_scores[target_id] = affinity_scores.get(target_id, 0.0) + w
+                else:
+                    # Pull in from DB if not already present in search candidates
+                    target_row = (
+                        self.db.query(Capsule)
+                        .filter(Capsule.id == target_id, Capsule.archived.is_(False))
+                        .first()
+                    )
+                    if target_row:
+                        conf = target_row.confidence or "medium"
+                        if CONFIDENCE_ORDER.get(conf, 0) >= min_val:
+                            row_dict = self._row_to_dict(target_row)
+                            row_dict["via_graph_edge"] = rel.relationship_type
+                            row_dict["connected_to"] = seed_topic
+                            candidate_map[target_id] = row_dict
+                            base_scores[target_id] = 0.05
+                            affinity_scores[target_id] = w
+
+            # Process incoming edges
+            for rel in incoming:
+                source_id = rel.from_capsule_id
+                if not include_superseded and source_id in superseded_map:
+                    continue
+                w = EDGE_WEIGHTS.get(rel.relationship_type, 1.0) * seed_weight * 0.8
+                if source_id in candidate_map:
+                    affinity_scores[source_id] = affinity_scores.get(source_id, 0.0) + w
+                else:
+                    source_row = (
+                        self.db.query(Capsule)
+                        .filter(Capsule.id == source_id, Capsule.archived.is_(False))
+                        .first()
+                    )
+                    if source_row:
+                        conf = source_row.confidence or "medium"
+                        if CONFIDENCE_ORDER.get(conf, 0) >= min_val:
+                            row_dict = self._row_to_dict(source_row)
+                            row_dict["via_graph_edge"] = f"incoming:{rel.relationship_type}"
+                            row_dict["connected_to"] = seed_topic
+                            candidate_map[source_id] = row_dict
+                            base_scores[source_id] = 0.05
+                            affinity_scores[source_id] = w
+
+        # Combine base relevance score and graph affinity boost
+        final_scores: Dict[str, float] = {}
+        for cid, cap in candidate_map.items():
+            base = base_scores.get(cid, 0.0)
+            aff = affinity_scores.get(cid, 0.0)
+            combined = base + (affinity_weight * aff)
+            final_scores[cid] = combined
+            cap["affinity_score"] = round(combined, 4)
+
+        # Sort candidates by combined utility score descending
+        reordered = sorted(candidate_map.values(), key=lambda c: final_scores.get(c["id"], 0.0), reverse=True)
+        return reordered
+
     def compose(
         self,
         tags: Optional[List[str]] = None,
@@ -275,6 +419,11 @@ class SearchEngine:
         confidence_min: Optional[str] = None,
         max_tokens: int = 4000,
         mode: str = "fts",
+        match_all_tags: bool = False,
+        graph_expansion: bool = True,
+        max_hops: int = 1,
+        affinity_weight: float = 0.5,
+        include_superseded: bool = False,
     ) -> Dict[str, Any]:
         capsules = self.search(
             query=query or "",
@@ -283,7 +432,32 @@ class SearchEngine:
             limit=200,
             offset=0,
             mode=mode,
+            match_all_tags=match_all_tags,
         )
+
+        superseded_map = {} if include_superseded else self._get_superseded_map()
+        excluded_capsules: List[Dict[str, Any]] = []
+
+        # Filter superseded capsules if not explicitly included
+        if not include_superseded and superseded_map:
+            filtered_capsules = []
+            for c in capsules:
+                if c["id"] in superseded_map:
+                    section_tokens = estimate_tokens(f"# {c['topic']}\n{c['content']}\n")
+                    excluded_capsules.append({
+                        "id": c["id"],
+                        "topic": c["topic"],
+                        "content": c["content"],
+                        "tags": c.get("tags", []),
+                        "confidence": c.get("confidence", "medium"),
+                        "token_estimate": section_tokens,
+                        "file_path": c.get("file_path"),
+                        "source": c.get("source"),
+                        "reason": f"Superseded by {superseded_map[c['id']]}",
+                    })
+                else:
+                    filtered_capsules.append(c)
+            capsules = filtered_capsules
 
         if confidence_min:
             min_val = CONFIDENCE_ORDER.get(confidence_min, 0)
@@ -291,10 +465,21 @@ class SearchEngine:
                 c for c in capsules if CONFIDENCE_ORDER.get(c.get("confidence", "medium"), 0) >= min_val
             ]
 
+        # Apply Graph-Aware Affinity Propagation & Dependency Closures
+        if graph_expansion and capsules:
+            capsules = self._expand_graph_affinity(
+                candidates=capsules,
+                confidence_min=confidence_min,
+                max_hops=max_hops,
+                affinity_weight=affinity_weight,
+                include_superseded=include_superseded,
+            )
+
         parts: List[str] = []
         current_tokens = 0
         included = 0
         truncated = False
+        included_capsules: List[Dict[str, Any]] = []
 
         for capsule in capsules:
             header = f"# {capsule['topic']}\n"
@@ -305,12 +490,28 @@ class SearchEngine:
             )
             section = header + body + meta
             section_tokens = estimate_tokens(section)
+            cap_item = {
+                "id": capsule["id"],
+                "topic": capsule["topic"],
+                "content": capsule["content"],
+                "tags": capsule.get("tags", []),
+                "confidence": capsule.get("confidence", "medium"),
+                "token_estimate": section_tokens,
+                "file_path": capsule.get("file_path"),
+                "source": capsule.get("source"),
+                "via_graph_edge": capsule.get("via_graph_edge"),
+                "connected_to": capsule.get("connected_to"),
+                "affinity_score": capsule.get("affinity_score"),
+            }
             if current_tokens + section_tokens > max_tokens:
                 truncated = True
-                break
+                cap_item["reason"] = f"Exceeds budget (+{section_tokens} tokens)"
+                excluded_capsules.append(cap_item)
+                continue
             parts.append(section)
             current_tokens += section_tokens
             included += 1
+            included_capsules.append(cap_item)
 
         context = "\n".join(parts)
         return {
@@ -318,6 +519,12 @@ class SearchEngine:
             "token_estimate": estimate_tokens(context) if context else 0,
             "capsule_count": included,
             "truncated": truncated,
+            "included_capsules": included_capsules,
+            "excluded_capsules": excluded_capsules,
+            "total_candidates": len(capsules) + len(excluded_capsules),
+            "max_tokens": max_tokens,
+            "graph_expansion": graph_expansion,
+            "include_superseded": include_superseded,
         }
 
     def stale_capsules(self, days: int = 90) -> List[Dict[str, Any]]:

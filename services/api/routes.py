@@ -6,13 +6,16 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from ..analysis.drift_detector import CodeDriftDetector
+from ..analysis.supersession import InvariantSupersessionEngine
 from ..search.engine import SearchEngine
 from ..shared.models import Capsule, CapsuleRelationship, Tag, get_db, utcnow
 from ..store.store import CapsuleStore, DuplicateContentError, StoreError
+from ..sync.event_bus import vault_event_bus
 
 router = APIRouter()
 
@@ -88,6 +91,22 @@ class ComposeRequest(BaseModel):
     confidence_min: Optional[str] = None
     max_tokens: int = Field(default=4000, ge=50, le=128000)
     mode: str = Field(default="fts", pattern="^(fts|semantic|hybrid)$")
+    graph_expansion: bool = Field(default=True, description="Enable graph-aware dependency closure and affinity propagation")
+    max_hops: int = Field(default=1, ge=0, le=5)
+    affinity_weight: float = Field(default=0.5, ge=0.0, le=5.0)
+    include_superseded: bool = Field(default=False, description="Include superseded and deprecated capsules")
+
+
+class SupersessionDetectRequest(BaseModel):
+    target_capsule_id: Optional[str] = None
+    min_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    apply_supersession: bool = False
+
+
+class SupersessionResolveRequest(BaseModel):
+    newer_id: str
+    older_id: str
+    deprecate_older: bool = True
 
 
 def get_store(db: Session = Depends(get_db)) -> CapsuleStore:
@@ -135,8 +154,23 @@ def create_capsule(data: CapsuleCreate, store: CapsuleStore = Depends(get_store)
     store.db.commit()
     store.db.refresh(capsule)
     payload = CapsuleResponse(**capsule.to_dict())
+    vault_event_bus.publish("capsule_created", payload.model_dump())
     status = 200 if payload.deduped else 201
     return JSONResponse(status_code=status, content=payload.model_dump())
+
+
+@router.get("/events/stream")
+async def stream_vault_events():
+    """Live Server-Sent Events (SSE) stream for real-time vault mutations."""
+    return StreamingResponse(
+        vault_event_bus.event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/capsules", response_model=CapsuleListResponse)
@@ -186,13 +220,17 @@ def update_capsule(capsule_id: str, data: CapsuleUpdate, store: CapsuleStore = D
         raise_store_error(exc)
     store.db.commit()
     store.db.refresh(capsule)
-    return CapsuleResponse(**capsule.to_dict())
+    res = CapsuleResponse(**capsule.to_dict())
+    vault_event_bus.publish("capsule_updated", res.model_dump())
+    return res
 
 
 @router.delete("/capsules/{capsule_id}", status_code=204)
 def delete_capsule(capsule_id: str, store: CapsuleStore = Depends(get_store)):
-    store.delete(require_uuid(capsule_id))
+    uid = require_uuid(capsule_id)
+    store.delete(uid)
     store.db.commit()
+    vault_event_bus.publish("capsule_deleted", {"id": uid})
     return None
 
 
@@ -201,7 +239,9 @@ def archive_capsule(capsule_id: str, store: CapsuleStore = Depends(get_store)):
     capsule = store.archive(require_uuid(capsule_id))
     store.db.commit()
     store.db.refresh(capsule)
-    return CapsuleResponse(**capsule.to_dict())
+    res = CapsuleResponse(**capsule.to_dict())
+    vault_event_bus.publish("capsule_archived", res.model_dump())
+    return res
 
 
 @router.post("/search", response_model=List[CapsuleResponse])
@@ -228,7 +268,46 @@ def compose_context(data: ComposeRequest, db: Session = Depends(get_db)):
         confidence_min=data.confidence_min,
         max_tokens=data.max_tokens,
         mode=data.mode,
+        graph_expansion=data.graph_expansion,
+        max_hops=data.max_hops,
+        affinity_weight=data.affinity_weight,
+        include_superseded=data.include_superseded,
     )
+
+
+@router.post("/analysis/supersession/detect")
+def detect_supersession(data: SupersessionDetectRequest, store: CapsuleStore = Depends(get_store)):
+    engine = InvariantSupersessionEngine(store)
+    report = engine.detect_contradictions(
+        target_capsule_id=data.target_capsule_id,
+        min_confidence=data.min_confidence,
+        apply_supersession=data.apply_supersession,
+    )
+    if data.apply_supersession:
+        store.db.commit()
+    return report.to_dict()
+
+
+@router.post("/analysis/supersession/resolve")
+def resolve_supersession(data: SupersessionResolveRequest, store: CapsuleStore = Depends(get_store)):
+    engine = InvariantSupersessionEngine(store)
+    try:
+        result = engine.resolve_supersession(
+            newer_id=require_uuid(data.newer_id),
+            older_id=require_uuid(data.older_id),
+            deprecate_older=data.deprecate_older,
+        )
+        store.db.commit()
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/analysis/drift")
+def detect_drift(target_path: Optional[str] = Query(None), store: CapsuleStore = Depends(get_store)):
+    detector = CodeDriftDetector(store)
+    report = detector.analyze(target_path=target_path)
+    return report.to_dict()
 
 
 @router.get("/stale")
@@ -239,6 +318,12 @@ def get_stale_capsules(days: int = Query(90, ge=1, le=3650), db: Session = Depen
         "count": len(capsules),
         "capsules": [CapsuleResponse(**c) for c in capsules],
     }
+
+
+@router.get("/relationships", response_model=List[RelationshipResponse])
+def list_relationships(db: Session = Depends(get_db)):
+    rels = db.query(CapsuleRelationship).all()
+    return [RelationshipResponse(**r.to_dict()) for r in rels]
 
 
 @router.post("/relationships", response_model=RelationshipResponse, status_code=201)

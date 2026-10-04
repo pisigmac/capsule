@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent, type MouseEvent } fro
 import {
   Archive,
   Clock,
-  Copy,
   Layers,
+  Link2,
   Plus,
   Search,
   Sparkles,
@@ -11,9 +11,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { api, type Capsule, type ComposeResult, type TagCount } from './api'
+import { api, type Capsule, type TagCount } from './api'
+import { RelationshipGraph } from './RelationshipGraph'
+import { PromptPlayground } from './PromptPlayground'
 
-type View = 'library' | 'compose' | 'stale'
+type View = 'library' | 'graph' | 'compose' | 'stale'
 type Draft = {
   id?: string
   topic: string
@@ -34,11 +36,6 @@ function App() {
   const [error, setError] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
-  const [composeQuery, setComposeQuery] = useState('')
-  const [composeTags, setComposeTags] = useState('')
-  const [composeMin, setComposeMin] = useState('medium')
-  const [composeTokens, setComposeTokens] = useState(2000)
-  const [composed, setComposed] = useState<ComposeResult | null>(null)
   const [stale, setStale] = useState<Capsule[]>([])
 
   const fail = (err: unknown) => {
@@ -92,26 +89,6 @@ function App() {
     }
   }
 
-  const runCompose = async (event: FormEvent) => {
-    event.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      const tagList = composeTags.split(',').map((item) => item.trim()).filter(Boolean)
-      setComposed(
-        await api.compose({
-          query: composeQuery || undefined,
-          tags: tagList.length ? tagList : undefined,
-          confidence_min: composeMin,
-          max_tokens: composeTokens,
-        }),
-      )
-    } catch (err) {
-      fail(err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const saveDraft = async (event: FormEvent) => {
     event.preventDefault()
@@ -172,10 +149,6 @@ function App() {
     setModalOpen(true)
   }
 
-  const copyContext = async () => {
-    if (!composed?.context) return
-    await navigator.clipboard.writeText(composed.context)
-  }
 
   return (
     <div className="app-container">
@@ -193,10 +166,18 @@ function App() {
             Library
           </button>
           <button
+            className={view === 'graph' ? 'tab active' : 'tab'}
+            onClick={() => setView('graph')}
+          >
+            <Link2 size={15} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+            Graph View
+          </button>
+          <button
             className={view === 'compose' ? 'tab active' : 'tab'}
             onClick={() => setView('compose')}
           >
-            Compose
+            <Sparkles size={15} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+            Playground
           </button>
           <button
             className={view === 'stale' ? 'tab active' : 'tab'}
@@ -325,83 +306,24 @@ function App() {
         </>
       ) : null}
 
+      {view === 'graph' ? (
+        <section style={{ margin: '20px 0' }}>
+          <RelationshipGraph
+            capsules={capsules}
+            onSelectCapsule={(cap) => openEdit(cap)}
+          />
+        </section>
+      ) : null}
+
       {view === 'compose' ? (
-        <section className="compose-layout">
-          <form className="glass compose-form" onSubmit={(event) => void runCompose(event)}>
-            <h2>Compose context</h2>
-            <p className="header-sub">Build a token-budgeted window for an agent session.</p>
-            <div className="input-group">
-              <label htmlFor="compose-query">Query</label>
-              <input
-                id="compose-query"
-                className="input"
-                value={composeQuery}
-                onChange={(event) => setComposeQuery(event.target.value)}
-                placeholder="auth middleware"
-              />
-            </div>
-            <div className="input-group">
-              <label htmlFor="compose-tags">Tags (comma separated)</label>
-              <input
-                id="compose-tags"
-                className="input"
-                value={composeTags}
-                onChange={(event) => setComposeTags(event.target.value)}
-                placeholder="auth, staging"
-              />
-            </div>
-            <div className="compose-row">
-              <div className="input-group">
-                <label htmlFor="compose-min">Minimum confidence</label>
-                <select
-                  id="compose-min"
-                  className="input"
-                  value={composeMin}
-                  onChange={(event) => setComposeMin(event.target.value)}
-                >
-                  <option value="hearsay">Hearsay</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-              <div className="input-group">
-                <label htmlFor="compose-tokens">Max tokens</label>
-                <input
-                  id="compose-tokens"
-                  className="input"
-                  type="number"
-                  min={50}
-                  max={32000}
-                  value={composeTokens}
-                  onChange={(event) => setComposeTokens(Number(event.target.value))}
-                />
-              </div>
-            </div>
-            <button className="btn btn-primary" type="submit" disabled={loading}>
-              Compose
-            </button>
-          </form>
-          <div className="glass compose-output">
-            <div className="modal-header">
-              <h2>Output</h2>
-              <button className="btn btn-ghost" type="button" onClick={() => void copyContext()} disabled={!composed?.context}>
-                <Copy size={16} />
-                Copy
-              </button>
-            </div>
-            {composed ? (
-              <>
-                <p className="header-sub">
-                  {composed.capsule_count} capsules · ~{composed.token_estimate} tokens
-                  {composed.truncated ? ' · truncated' : ''}
-                </p>
-                <pre className="compose-pre">{composed.context || '(empty)'}</pre>
-              </>
-            ) : (
-              <p className="header-sub">Run compose to fill an agent context window.</p>
-            )}
-          </div>
+        <section style={{ margin: '20px 0' }}>
+          <PromptPlayground
+            initialTags={tags}
+            onSelectCapsule={(id) => {
+              const cap = capsules.find((c) => c.id === id)
+              if (cap) openEdit(cap)
+            }}
+          />
         </section>
       ) : null}
 

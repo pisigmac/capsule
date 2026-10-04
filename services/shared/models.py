@@ -328,17 +328,30 @@ def _ensure_columns(conn, dialect: str) -> None:
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_capsules_content_hash ON capsules (content_hash)"))
 
 
-def init_db() -> None:
-    """Create tables and the backend-specific search index. Safe to call repeatedly."""
-    bind = get_engine()
-    Base.metadata.create_all(bind=bind)
+_DDL_LOCK_KEY = 912002
 
+
+def init_db() -> None:
+    """Create tables and the backend-specific search index. Safe to call repeatedly and across multiple workers."""
+    bind = get_engine()
+    if bind.dialect.name == "postgresql":
+        with bind.connect() as conn:
+            conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": _DDL_LOCK_KEY})
+            try:
+                Base.metadata.create_all(bind=conn)
+                _ensure_columns(conn, "postgresql")
+                _init_postgres_search(conn)
+                conn.commit()
+            finally:
+                conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _DDL_LOCK_KEY})
+                conn.commit()
+        return
+
+    Base.metadata.create_all(bind=bind)
     with bind.connect() as conn:
         _ensure_columns(conn, bind.dialect.name)
         if bind.dialect.name == "sqlite":
             _init_sqlite_search(conn)
-        elif bind.dialect.name == "postgresql":
-            _init_postgres_search(conn)
         else:
             raise RuntimeError(f"Unsupported database dialect: {bind.dialect.name}")
         conn.commit()

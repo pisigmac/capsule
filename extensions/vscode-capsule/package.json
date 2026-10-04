@@ -1,0 +1,112 @@
+{
+  "name": "capsule-companion",
+  "displayName": "Capsule Companion",
+  "description": "Atomic memory and architectural invariant hover companion for VS Code and Cursor",
+  "version": "0.5.0",
+  "publisher": "pisigmac",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pisigmac/capsule"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other",
+    "Linters"
+  ],
+  "keywords": [
+    "capsule",
+    "memory",
+    "ai",
+    "agent",
+    "invariant",
+    "knowledge",
+    "cursor"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "capsule.search",
+        "title": "Search Memory Vault",
+        "category": "Capsule"
+      },
+      {
+        "command": "capsule.new",
+        "title": "Create New Capsule",
+        "category": "Capsule"
+      },
+      {
+        "command": "capsule.reconcile",
+        "title": "Reconcile Vault",
+        "category": "Capsule"
+      },
+      {
+        "command": "capsule.refreshTree",
+        "title": "Refresh Vault Explorer",
+        "category": "Capsule",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "capsule.openCapsule",
+        "title": "Open Capsule",
+        "category": "Capsule"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "capsule-sidebar",
+          "title": "Capsule Memory",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "capsule-sidebar": [
+        {
+          "id": "capsule-explorer",
+          "name": "Memory Vault"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Capsule",
+      "properties": {
+        "capsule.capsulesDirectory": {
+          "type": "string",
+          "default": "caps",
+          "description": "Directory relative to workspace root containing capsule markdown files"
+        },
+        "capsule.enableHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline hover provider for architectural invariants"
+        },
+        "capsule.confidenceThreshold": {
+          "type": "string",
+          "enum": ["all", "medium", "high"],
+          "default": "all",
+          "description": "Minimum confidence required to show hover tooltips"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "node ./out/tests/runTests.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  }
+}
